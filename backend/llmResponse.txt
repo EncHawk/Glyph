@@ -1,5 +1,5 @@
+```python
 from manim import *
-
 
 class NeuralNetworkIllustration(Scene):
     def construct(self):
@@ -88,7 +88,4 @@ class NeuralNetworkIllustration(Scene):
         self.play(Transform(title, final_title))
         self.play(layers.animate.set_color(GREEN), edge_groups.animate.set_color(GREEN_E))
         self.wait(2)
-
-if __name__=="__main__":
-    dr = NeuralNetworkIllustration()
-    dr.construct()
+```

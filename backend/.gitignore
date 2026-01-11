@@ -1,0 +1,5 @@
+media
+.venv
+__pycache__
+uploads
+reads
