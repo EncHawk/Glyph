@@ -26,25 +26,29 @@ def rag():
     if request.method == 'POST':
         if 'file' not in request.files:
             return 'no file found, try again', 401
-        file = request.files['file']
-        print(file.filename)
-        filename = file.filename
-        stores(filename)
-        if filename and allowed_file(filename):
-            content = file.read()
-            file.save(os.path.join(upload_folder,filename))
-            print('file saved')
-            filepath = os.path.join(os.path.dirname(__file__),'reads',filename)
-            print("content: ",len(content))
 
-            with open(filepath,'wb') as pd:
-                pd.write(content)
-        
-        if filename=='':
-            return 'no file found, try again', 401
-        return 'file was successfully saved, shd be followed with a mini summary', 200
+        file = request.files['file']
+        filename = file.filename
+
+        if not filename or not allowed_file(filename):
+            return 'invalid file', 400
+
+        # the file path to storethe pdf locally.
+        filepath = os.path.join(upload_folder, filename)
+
+        file.save(filepath)
+
+        print('file saved at:', filepath)
+
+        stores(filepath)
+
+        return 'upload successful', 200
     else:
-        return 'GET the fuck out', 405
+        return 'GET the fuck out, invalid request method.', 403
+
+            
+        
+      
 
 if __name__ =="__main__":
     app.run(host="0.0.0.0", port="8080",debug=True)
