@@ -2,12 +2,15 @@ import os
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS 
 from llm import inferModel
+from rag import stores
 app = Flask(__name__)
 CORS(app, resources={
     r'/*':{'origin':'http://localhost:5500'}})
 
 
 upload_folder = os.path.join(os.path.dirname(__file__),'uploads')
+
+
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -26,6 +29,7 @@ def rag():
         file = request.files['file']
         print(file.filename)
         filename = file.filename
+        stores(filename)
         if filename and allowed_file(filename):
             content = file.read()
             file.save(os.path.join(upload_folder,filename))
