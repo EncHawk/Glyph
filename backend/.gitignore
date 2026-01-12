@@ -5,3 +5,5 @@ uploads
 reads
 glyphDB/*
 .env
+.env.*
+!.env.example
