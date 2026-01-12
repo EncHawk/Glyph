@@ -69,7 +69,7 @@ def inferModel(prompt:str)->str:
         Achievements & Certifications
         | x.com/Dilip
     """
-    client = genai.Client(api_key="AIzaSyCJgkoGp5lpoXgh92cS2XhZ6PFyHRFDeYI")
+    client = genai.Client() #add your api key here. but dont fucking leak it like an idiot
     response = client.models.generate_content(
         model="gemini-3-flash-preview",
         contents="""{data}
