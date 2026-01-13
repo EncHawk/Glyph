@@ -1,6 +1,6 @@
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+# from langchain_google_genai import ChatGoogleGenerativeAI
+# from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -8,12 +8,19 @@ from langchain.tools import tool
 from langchain.agents import create_agent
 from langchain_core.messages import SystemMessage
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
 from dotenv import load_dotenv
 
 load_dotenv()
 
-model  = ChatGoogleGenerativeAI(model="gemini-2.5-flash-lite")
-embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
+    repo_id= "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    temperature = 0.7,
+)
+model = ChatHuggingFace(llm=llm)
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+
 vector_store= Chroma(
     collection_name="glyph-rag",
     embedding_function = embeddings,
@@ -48,7 +55,7 @@ def stores(source, isText=False):
 
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=500,
-        chunk_overlap=10,
+        chunk_overlap=50,
         add_start_index=True,
         separators=["\n\n", "\n", " ", ""]
     )
@@ -60,36 +67,37 @@ def stores(source, isText=False):
 @tool(response_format="content_and_artifact")
 def retrieve_similarity(query:str): # for a query searches the related documents
     """ returns a list of similar indices in the vector store that match the query in terms of some similarity"""
-    retrieved_data = vector_store.similarity_search(query,k=5)
-    serialized_data = "__--analysis--__".join(
-        (f"source:{doc.metadata} \n content : {doc.page_content}") 
-        for doc in retrieved_data)
-    return serialized_data, retrieved_data
+    retrieved_docs = vector_store.similarity_search(query, k=5)
+    serialized = "\n\n".join(
+        (f"Source: {doc.metadata}\nContent: {doc.page_content}")
+        for doc in retrieved_docs
+    )
+    return serialized, retrieved_docs
 
 def inferAgent(query: str):
     tools = [retrieve_similarity]
-    agent = create_agent(model, tools)
-    
-    messages = [
-        SystemMessage(content=(
-            "You have access to a tool that retrieves data from a pdf file that a user has provided. "
-            "Use the tool to create meaningful and contextual response to the user's query."
-        )),
-        {"role": "user", "content": query}
-    ]
-    result = agent.invoke({"messages": messages})
-    return result["messages"][-1]
+    prompt = (
+        "You have access to a tool that retrieves context from a blog post. "
+        "Use the tool to help answer user queries in the name of retrieve similarity, always use this before generating any response",
+        "NO MATTER WHAT THE USER RESPONSE IS, YOU MUST ALWAYS REFER ONLY TO THE OUTPUT FROM THE TOOL AND NOTHING ELSE, ALL YOUR INTELLIGENCE IS RETRIEVED FROM THE TOOL'S OUTPUT"
+    )
+    agent = create_agent(model, tools, system_prompt= prompt)
+    for event in agent.stream(
+        {"messages": [{"role": "user", "content": query}]},
+        stream_mode="values",
+    ):
+        event["messages"][-1].pretty_print()
 
 
 if __name__=="__main__":
     print('entered rag.py')
-    path = os.path.join(os.path.dirname(__name__),'uploads','nasa.pdf')
+    path = os.path.join(os.path.dirname(__name__),'uploads','Jeevan_Koiri_Software_Engineer.pdf')
     text_path = os.path.join(os.path.dirname(__name__),'uplaods','input.txt')
-    stores(text_path, isText=True)
+    stores(path)
     query="""
-        Help me understand the general terms of the agreement while youre at it, delve in to this part of the agreement:
-        `waiver and indemnity`
+        im looking for a go developer, can you help me find one? gimme their contact details from
+
     """
     res = inferAgent(query)
-    print(res)
+    # print(res.content)
 # pip install langchain-community pytesseract pdf2image
