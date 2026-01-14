@@ -7,3 +7,5 @@ glyphDB/*
 .env
 .env.*
 !.env.example
+
+generated-scripts
