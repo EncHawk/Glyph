@@ -2,91 +2,99 @@ import os
 # from langchain_google_genai import ChatGoogleGenerativeAI
 # from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_community.document_loaders import PyPDFLoader
+from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from langchain.agents import create_agent
-from langchain_core.messages import SystemMessage
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from pdf2image import convert_from_path
+import pytesseract
+import uuid
+from typing import Optional
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# move all this into the main endpoint for rag, also ensure that login stuff is included in flask.
+# now you'll realise how difficult it is to do this without express.
+
 llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
-    repo_id= "Qwen/Qwen3-Coder-480B-A35B-Instruct",
+    repo_id= "Qwen/Qwen2.5-7B-Instruct",
     temperature = 0.7,
 )
 model = ChatHuggingFace(llm=llm)
 embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
-vector_store= Chroma(
-    collection_name="glyph-rag",
-    embedding_function = embeddings,
-    persist_directory = './glyphDB'
-)
+class RagAgent:
+    def __init__(self, embeddings, model):
+        self.embeddings = embeddings
+        self.model = model
+        self.active_sessions = {}
 
-
-def stores(source, isText=False):
-    """
-        FILEPATH IS BEING USED AS AN ALIAS FOR THE TEXT PART OF THE FUNCTION.
-        FIX: add the chaneges to make this compatible to by naming convention
-        takes an input string, to produce a boolean to validate
-        whether or not storing the embeddings worked. 
-        
-        ::server should call the LLM next with the embeddings.
-    """
-
-    # ai fix, instead of repeating stuff for both pdf and text use a common documents var.
-    if not isText:
-        # uploads = f"./reads/{filename}"
-        loader = PyPDFLoader(source)
-        documents = loader.load()
-        metadata_source= source
-    else:
-        documents= [ 
-            Document(
-                page_content= source,
-                metadata = {'source':"raw_text"}
+    def get_user_vector_store(self, session_id: str):
+        if session_id not in self.active_sessions:
+            persist_dir = f'./glyphDB/session_{session_id}'
+            self.active_sessions[session_id] = Chroma(
+                collection_name=f"session_{session_id}",
+                embedding_function=self.embeddings,
+                persist_directory=persist_dir
             )
-        ]
-        metadata_source = 'raw_text'
+        return self.active_sessions[session_id]
 
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=500,
-        chunk_overlap=50,
-        add_start_index=True,
-        separators=["\n\n", "\n", " ", ""]
-    )
-    splits = text_splitter.split_documents(documents)
-    print(f"the number of splits {len(splits)}")
-    document_ids = vector_store.add_documents(splits)
-    print(document_ids[:3])
+    def store(self, source, session_id: str, is_text=False):
+        vector_store = self.get_user_vector_store(session_id)
 
-@tool(response_format="content_and_artifact")
-def retrieve_similarity(query:str): # for a query searches the related documents
-    """ returns a list of similar indices in the vector store that match the query in terms of some similarity"""
-    retrieved_docs = vector_store.similarity_search(query, k=5)
-    serialized = "\n\n".join(
-        (f"Source: {doc.metadata}\nContent: {doc.page_content}")
-        for doc in retrieved_docs
-    )
-    return serialized, retrieved_docs
+        if os.listdir(source) == []:
+            documents = [Document(
+                page_content=source,
+                metadata={'source': 'raw_text', 'session_id': session_id}
+            )]
+        else:
+            loader = PyPDFLoader(source)
+            documents = loader.load()
 
-def inferAgent(query: str):
-    tools = [retrieve_similarity]
-    prompt = (
-        "You have access to a tool that retrieves context from a blog post. "
-        "Use the tool to help answer user queries in the name of retrieve similarity, always use this before generating any response",
-        "NO MATTER WHAT THE USER RESPONSE IS, YOU MUST ALWAYS REFER ONLY TO THE OUTPUT FROM THE TOOL AND NOTHING ELSE, ALL YOUR INTELLIGENCE IS RETRIEVED FROM THE TOOL'S OUTPUT"
-    )
-    agent = create_agent(model, tools, system_prompt= prompt)
-    for event in agent.stream(
-        {"messages": [{"role": "user", "content": query}]},
-        stream_mode="values",
-    ):
-        event["messages"][-1].pretty_print()
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=50,
+        )
+        splits = splitter.split_documents(documents)
+        for s in splits:
+            s.metadata['session_id'] = session_id
+
+        return vector_store.add_documents(splits)
+
+    def retrieve_similarity(self, query: str, session_id: str):
+        vector_store = self.get_user_vector_store(session_id)
+        docs = vector_store.similarity_search(query, k=5)
+
+        serialized = "\n\n".join(
+            f"Source: {d.metadata}\nContent: {d.page_content}"
+            for d in docs
+        )
+        return serialized, docs
+
+    def infer(self, query: str, session_id: str):
+        tools = [lambda q: self.retrieve_similarity(q, session_id)]
+
+        prompt = "Use the retrieval tool to answer queries for this session."
+
+        agent = create_agent(self.model, tools, system_prompt=prompt)
+
+        for event in agent.stream(
+            {"messages": [{"role": "user", "content": query}]},
+            stream_mode="values"
+        ):
+            event["messages"][-1].pretty_print()
+
+    def cleanup_session(self, session_id: str):
+        if session_id in self.active_sessions:
+            import shutil
+            path = f'./glyphDB/session_{session_id}'
+            if os.path.exists(path):
+                shutil.rmtree(path)
+            del self.active_sessions[session_id]
 
 
 if __name__=="__main__":
