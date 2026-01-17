@@ -1,5 +1,7 @@
 from google import genai
+import subprocess
 import os
+import sys
 import uuid
 from dotenv import load_dotenv
 load_dotenv()
@@ -22,26 +24,35 @@ def inferModel(prompt:str)->str:
                 * IN THE CASE WHEN A USER'S QUERY CAN NOT BE ILLUSTRATED, ADD TEXT DESCRIBING THE RESPONSE AND DRAW A FLOWCHART OR ANY STATIC DIAGRAM IN NECESSARY
                 * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 25 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
             ** strict rules: **
+                -- For all illustrations return an two items, first being the actual code for the illustration, the second is the name of the illustration class in the end, 
+                    they need to be separated like this : ..manimcode..  --className--  NeuralNetworkIllustration
                 -- For all the illustrations dont create a response with 'python' at the top to specify or any other indicative words that may ruin the script run.
                 -- Always create a script alone with its necessary imports, it will be run with the manim -pwm flag, work accordingly
                 -- strictly must have only one video of the entire illustration
                 -- the response mut only contrain the code, and no other output tokens,
                 including but not limited to greetings or un necessary special charecters or any explanation of the code.
-                -- IF THE INPUT DOES NOT STRICTLY ASK FOR A VIDEO OR AN ILLUSTRATION RETURN JUST A NORMAL RESPONSE FOLLOWING THE TEXT RULES for the user's query.
                 -- Every step in the illustration must have a title, a title that changes and corresponds to the context of the illustration
         """,
     )
-    return response.text
+    className = response.text.split('--className--')
+    print(className)
+    return className
 
 if __name__ == "__main__":
-    prompt = """What is photosynthesis, how does it work? gimme a video illustration for it."""
+    prompt = """how does the alphabets go? use an example for each alphabet with both capital and lowercase letters"""
     res= inferModel(prompt=prompt) 
     id = uuid.uuid4()
-    gen = os.path.join(os.path.dirname(__name__), 'generated-scripts',str(id)+'.py') # add the session id as the joining name next
-    if len(res) > 10:
+    gen = os.path.join(os.path.dirname(__name__), 'generated-scripts',res[1]+'.py') # add the session id as the joining name next
+    if len(res[0]) > 10:
         print('writing to a file')
-        print(res)
+        print(res[1])
         with open (gen, 'w') as f:
-            f.write(res)
-        os.system(gen)
+            f.write(res[0])
+    file = os.path.abspath(f"generated-scripts/{res[1]}.py")
+    subprocess.run(
+        [sys.executable, "-m", "manim", "-pql", file, res[1]],
+        check=True
+    )
+        # os.system(f".venv/bin/python {res[1]}.py") # runs the python file
+        # use subprocess to run the python file
     print(res)
