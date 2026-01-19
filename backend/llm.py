@@ -40,12 +40,14 @@ def inferModel(input:str)->str:
             * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 25 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
         ** strict rules: ** 
         -- MAKE SURE THAT ALL THE CODE YOU WRITE EXISTS IN ONE FILE, ALL THE HELPER FUNCTIONS IF USED OR NEEDED MUST BE INCLUDED IN THE SAME SCRIPT.
+        -- IRRESPECTIVE OF SYSTEM/BUILT-IN LIBRARIES INCLUDE THE NECESSARY IMPORTS
         -- THE SCRIPT WILL BE RUN IN AN EVIRONMENT WITH THE LATEST VERSION OF MANIM AND YOU MUST CREATE A SCRIPT THAT IS VALID ACCORDINGLY.
+        -- WHILE USING LISTS OR ANY DATA STRUCTURES, ENSURE THAT THE USAGE IS VALID IN TERMS OF INDICES, WRAP IT IN A IF ELSE STATEMENT TO ENSURE SMOOTH RENDERING.
         -- YOU HAVE TO PROVIDE THE CODE ALWAYS FOR THE ILLUSTRATIONS IRRESPECTIVE OF THE COMPLEXITY.
+        -- ANY CONTENT THAT IS GENERATED MUST BE CONCENTRATED IN THE CENTER OF THE CANVAS, 
+            IF THERE ARE ANY SORT OF VISUAL BOTTLENECKS GRADUALLY REMOVE ELEMENTS TO REPLACE THEM WITH NEW CONTENT.
+        -- ALWAYS MAKE SURE THAT THE TEXT THAT EXPLAINS THE CONTENT IS 100% VISIBLE AT ALL TIMES AND CHANGES DYNAMICALLY.
         --  ENSURE THAT THE SYNTAX IS TAKEN CARE OF, THERE MUST STRICTLY BE NO SYNTAX ERRORS. EXPECIALLY WITH STRINGS QUOTATIONS CLOSING.
-        -- For all illustrations return an two items, first being the actual code for the illustration,
-            the second is the name of the illustration class in the end, they need to be separated like this : 
-            ..manimcode.. --className-- IllustrationClassName (replace this with the class from the code, this must have a --className-- text before it). 
         -- Every step in the illustration must have a title, a title that changes and corresponds to the context of the illustration, the title must be simple to read and shouldnt exceed 10 charecters. 
         -- DO NOT EMBED THE CODE IN DOCSTRING QUOTES AT THE BEGINING OR AT THE END, ONLY IMPORTS, CLASS FOR THE MANIM ILLUSTRATION IS EXPECTED IN THE RESPONSE.
         -- For all the illustrations dont create a response with 'python' at the top to specify or any other indicative words that may ruin the script run.
@@ -53,6 +55,12 @@ def inferModel(input:str)->str:
         -- strictly must have only one video of the entire illustration, the code must follow the above rules and not be followed by a summary or any thing apart from just the code.
         -- the response mut only contrain the code, and no other output tokens, never wrap the code in any docstring or language name that directly results in an error when manim command is run
         including but not limited to greetings or un necessary special charecters or any explanation of the code.
+        -- Always ensure that the illustration covers all aspects of the prompt, make it as simple as possible to understand
+          and be generous with adding visual cues that enhance the experience.
+        -- BEFORE THE CODE IS RETURNED AS A RESPONSE ENSURE THAT THE CODE IS VALID WITHOUT ANY ERRORS OF ANY KIND, AND MAKE THE CHANGES ACCORDINGLY,
+            THE CODE MUST BE VERY SIMPLE YET PROVIDING A VISUAL EXPERIENCE THAT IS WONDERFUL.
+        -- IF YOU ARE USING THE random FUNCTION IMPORT THE RANDOM LIBRARY!
+
     """
     messages=[
         {
@@ -98,8 +106,7 @@ def inferModel(input:str)->str:
     return response_text
 
 if __name__ == "__main__":
-    prompt = """lord ganesha entering the atmosphere, make him simply a stick figure but add
-      all the effects that disturb the cosmos and remove all bads from the planet"""
+    prompt = """how to multiple 5 digits"""
     
     res= inferModel(input=prompt) 
     print(type(res))
