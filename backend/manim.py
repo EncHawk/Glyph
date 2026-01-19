@@ -111,7 +111,7 @@ class Manim:
 
 
 
-# add this as a function in the server file.
+# add this as a function in the server file before calling the model.
 if __name__ == "__main__":
     prompt = """how to multiple 5 digits"""
     
