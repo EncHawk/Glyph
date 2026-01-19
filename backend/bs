@@ -1,0 +1,36 @@
+   
+    response = client.chat_completion(
+        model="mistralai/Mistral-7B-Instruct-v0.2",
+        messages= messages,
+        max_tokens=3000,
+        temperature=0.7
+    )
+
+    
+prompt= f"""{input}
+        YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
+        THE SYSTEM MESSAGE FOR THE CODE GENERATION IS AS FOLLOWS YOU ARE TO STRICTLY ADHERE TO EVERY SINGLE RULE IN THIS
+        You MUST return a valid JSON object with this EXACT structure:
+            {{
+                "code": "escaped python code here with \\n for newlines and \\\" for quotes",
+                "className": "YourClassName"
+            }}
+        ** rules for illustration ** these rules apply only for the case when a video / illustration is being requested: 
+            * divide the task into 4 parts each occupying 5s of the time, in the end add a last chunk of 5s to complete the video in about 20seconds time 
+            * each video must be elaborate and must have as much information about the user's query as possible, conveying the information in a clean and crisp manner without any deviation from the inital query. 
+            * IN THE CASE WHEN A USER'S QUERY CAN NOT BE ILLUSTRATED, ADD TEXT DESCRIBING THE RESPONSE AND DRAW A FLOWCHART OR ANY STATIC DIAGRAM IN NECESSARY 
+            * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 25 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
+        ** strict rules: ** 
+        -- YOU HAVE TO PROVIDE THE CODE ALWAYS FOR THE ILLUSTRATIONS IRRESPECTIVE OF THE COMPLEXITY.
+        --  ENSURE THAT THE SYNTAX IS TAKEN CARE OF, THERE MUST STRICTLY BE NO SYNTAX ERRORS. EXPECIALLY WITH STRINGS QUOTATIONS CLOSING.
+        -- For all illustrations return an two items, first being the actual code for the illustration,
+            the second is the name of the illustration class in the end, they need to be separated like this : 
+            ..manimcode.. --className-- IllustrationClassName (replace this with the class from the code, this must have a --className-- text before it). 
+        -- Every step in the illustration must have a title, a title that changes and corresponds to the context of the illustration, the title must be simple to read and shouldnt exceed 10 charecters. 
+        -- DO NOT EMBED THE CODE IN DOCSTRING QUOTES AT THE BEGINING OR AT THE END, ONLY IMPORTS, CLASS FOR THE MANIM ILLUSTRATION IS EXPECTED IN THE RESPONSE.
+        -- For all the illustrations dont create a response with 'python' at the top to specify or any other indicative words that may ruin the script run.
+        -- Always create a script alone with its necessary imports, it will be run with the manim -pwm flag, work accordingly to not add any extra charecters that will result in an error.
+        -- strictly must have only one video of the entire illustration, the code must follow the above rules and not be followed by a summary or any thing apart from just the code.
+        -- the response mut only contrain the code, and no other output tokens, never wrap the code in any docstring or language name that directly results in an error when manim command is run
+        including but not limited to greetings or un necessary special charecters or any explanation of the code.
+    """

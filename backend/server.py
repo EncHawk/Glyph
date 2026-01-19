@@ -1,7 +1,7 @@
 import os
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS 
-from llm import inferModel
+from backend.manim import Manim
 from rag import RagAgent
 app = Flask(__name__)
 CORS(app, resources={
