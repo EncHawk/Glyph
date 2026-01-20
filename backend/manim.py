@@ -8,27 +8,19 @@ from pydantic import BaseModel, ValidationError, constr
 from dotenv import load_dotenv
 load_dotenv()
 
-class ModelResponse(BaseModel):
-    code:constr(min_length=1, strip_whitespace=True)
-    className:str
-
-# now this can be passes as a response format to the model, to ensure that it returns without any backticks or extra bullshit
-response_format = {
-    "type":"json_schema",
-    "json_schema":{
-        "name" : "Model_Response",
-        "schema":ModelResponse.model_json_schema(),
-        "strict":True
-    }
-}
-
 class Manim:
-    def __init__ (self,response_format):
+    def __init__ (self,response_format, prompt):
         self.response_format = response_format
-
-    def inferModel(input:str)->str:
+        self.prompt = prompt
+    # now this can be passes as a response format to the model, to ensure that it returns without any backticks or extra bullshit
+    
+    def inferModel(self,model)->str:
         #genai.client
         client = InferenceClient(api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN")) 
+        input = self.prompt
+        print(input)
+        print("manim logic")
+
         prompt= f"""{input}
             YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
             THE SYSTEM MESSAGE FOR THE CODE GENERATION IS AS FOLLOWS YOU ARE TO STRICTLY ADHERE TO EVERY SINGLE RULE IN THIS
@@ -80,8 +72,8 @@ class Manim:
             model="zai-org/GLM-4.7",
             messages= messages,
             max_tokens=3000,
-            temperature=0.7,
-            response_format=response_format
+            temperature=0.9,
+            response_format=self.response_format
         )
         raw = response.choices[0].message.content
         if not raw.startswith("{"):
@@ -101,38 +93,10 @@ class Manim:
 
 
         try:
-            response_text = ModelResponse(**parsed)
+            response_text = model(**parsed)
         except ValidationError as e:
             print(e.message)
             print(response_text)
 
         print(response_text.className)
         return response_text
-
-
-
-# add this as a function in the server file before calling the model.
-if __name__ == "__main__":
-    prompt = """how to multiple 5 digits"""
-    
-    res= inferModel(input=prompt) 
-    print(type(res))
-    # print(len(res))
-    print(res.className)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    gen_dir = os.path.join(base_dir, "generated-scripts")
-
-    os.makedirs(gen_dir, exist_ok=True)
-
-    gen = os.path.join(gen_dir, f"{res.className}.py")
-    # add the session id as the joining name next
-    if len(res.code) > 10:
-        print('writing to a file')
-        with open (gen, 'w') as f:
-            f.write(res.code)
-    file = os.path.abspath(f"generated-scripts/{res.className}.py")
-    subprocess.run(
-        [sys.executable, "-m", "manim", "-pql", file, res.className],
-        check=True
-    )
-    print(res)

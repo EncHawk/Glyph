@@ -20,12 +20,12 @@ load_dotenv()
 # move all this into the main endpoint for rag, also ensure that login stuff is included in flask.
 # now you'll realise how difficult it is to do this without express.
 
-llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
-    repo_id= "Qwen/Qwen2.5-7B-Instruct",
-    temperature = 0.7,
-)
-model = ChatHuggingFace(llm=llm)
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+# llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
+#     repo_id= "Qwen/Qwen2.5-7B-Instruct",
+#     temperature = 0.7,
+# )
+# model = ChatHuggingFace(llm=llm)
+# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
 class RagAgent:
     def __init__(self, embeddings, model):

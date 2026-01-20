@@ -1,7 +1,11 @@
 import os
+import subprocess
+import sys
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS 
-from backend.manim import Manim
+from pydantic import BaseModel,constr
+from manim import Manim
+
 from rag import RagAgent
 app = Flask(__name__)
 CORS(app, resources={
@@ -9,9 +13,6 @@ CORS(app, resources={
 
 
 upload_folder = os.path.join(os.path.dirname(__file__),'uploads')
-
-
-
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_files
@@ -19,6 +20,55 @@ def allowed_file(filename):
 @app.route('/status')
 def home():
     return '<p>200,SERVER UP AND RUNNING.</p>'
+
+@app.route('/manim', methods=["POST","GET"])
+def manimResponse():
+    class ModelResponse(BaseModel):
+        code:constr(min_length=1, strip_whitespace=True)
+        className:str
+    response_format = {
+        "type":"json_schema",
+        "json_schema":{
+            "name" : "Model_Response",
+            "schema":ModelResponse.model_json_schema(),
+            "strict":True
+        }
+    }
+    try:
+        data = request.get_json()
+        input = data.get('prompt')
+        print(input)
+        print("api gateway")
+        manimInstance = Manim(response_format=response_format, prompt = input)
+        res = manimInstance.inferModel(model=ModelResponse)
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        gen_dir = os.path.join(base_dir, "generated-scripts")
+        os.makedirs(gen_dir, exist_ok=True)
+        gen = os.path.join(gen_dir, f"{res.className}.py")
+
+        if len(res.code) > 10:
+            print('writing to a file')
+            with open (gen, 'w') as f:
+                f.write(res.code)
+
+        file = os.path.abspath(f"generated-scripts/{res.className}.py")
+
+        done = subprocess.run(
+            ["manim", "-pql", file, res.className],
+            check=True
+        )
+        # os.system(f"manim -pql {file} {res.className}")
+        if not done:
+            print(done)
+            return {"success":"false", "msg":"not looking good, couldnt run command", "data":f"{request.remote_addr}"},503
+        else:
+            return {"success":"true", "msg":"looking good", "data":f"{request.remote_addr}", "file":f"{res.className}.py"},200
+
+    except Exception as e:
+        print(e)
+        return {"success":"false", "msg":f"something went wrong while generating, try again.", "data":f"{request.remote_addr}"},503
+
+
 
 allowed_files = ['pdf','xlsx','docx']
 @app.route('/upload', methods=['GET','POST']) # post req to receive the files (1) for rag with the prompt, and send the response back.
