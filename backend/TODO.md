@@ -30,3 +30,16 @@ this is what's left :
                         [] figure out a cheap deployment service
                         [] image and manim videos storage too.
                         [] maybe buy a domain.
+
+
+IDEATION: 
+
+    - Moving from Learners first to, feature rich platform enabling the following : 
+
+letting the users provide api keys, 
+
+context forwarding -> users choose a specific message and chain that to the model's input allowing the model to work on a specific piece of text 
+
+text based interface is the go-to, maybe add an infinite canvas to allow context forwarding similar to infinite gpt.
+
+SDLC update: moving from 20th to south of 25th for the beta. let's see where this takes me.
