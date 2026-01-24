@@ -23,6 +23,11 @@ this is what's left :
                         [] AWS , Cloudinary or other service for the files and images.
                         [] elaborate resposne validation for the same.
 
+5) misc ->              
+                []  RAG understadning, fixing the RAG endpoint
+                []  FFMPEG compression and conversion to a diff file type for manim. maybe gif from mp4 (default)
+
+
 
 ## frontend / deployment
 

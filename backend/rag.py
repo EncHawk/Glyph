@@ -52,7 +52,7 @@ class RagAgent:
                 metadata={'source': 'raw_text', 'session_id': session_id}
             )]
         else:
-            loader = PyPDFLoader(source)
+            loader = UnstructuredPDFLoader(source)
             documents = loader.load()
 
         splitter = RecursiveCharacterTextSplitter(
@@ -97,15 +97,16 @@ class RagAgent:
             del self.active_sessions[session_id]
 
 
-if __name__=="__main__":
-    print('entered rag.py')
-    path = os.path.join(os.path.dirname(__name__),'uploads','Jeevan_Koiri_Software_Engineer.pdf')
-    text_path = os.path.join(os.path.dirname(__name__),'uplaods','input.txt')
-    stores(path)
-    query="""
-        im looking for a go developer, can you help me find one? gimme their contact details from
+# if __name__=="__main__":
+#     print('entered rag.py')
+#     path = os.path.join(os.path.dirname(__name__),'uploads','Jeevan_Koiri_Software_Engineer.pdf')
+#     text_path = os.path.join(os.path.dirname(__name__),'uplaods','input.txt')
+#     rag = RagAgent() 
+#     store(path)
+#     query="""
+#         im looking for a go developer, can you help me find one? gimme their contact details from
 
-    """
-    res = inferAgent(query)
+#     """
+#     res = inferAgent(query)
     # print(res.content)
 # pip install langchain-community pytesseract pdf2image

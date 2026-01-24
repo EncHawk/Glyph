@@ -1,15 +1,31 @@
 import os
 import subprocess
 import sys
+import jwt
 from flask import Flask, request, render_template, jsonify
+from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS 
+import psycopg2
 from pydantic import BaseModel,constr
 from manim import Manim
-
 from rag import RagAgent
+
+
 app = Flask(__name__)
 CORS(app, resources={
     r'/*':{'origin':'http://localhost:5500'}})
+
+#database config
+app.config["SQLALCHEMY_DATABASE_URI"]= os.getenv('pgsql')
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+db = SQLAlchemy(app)
+
+class User(db.Model):
+    username = db.Column(db.String, primary_key=True)
+    email = db.Column(db.String)
+
+with app.app_context():
+    db.create_all()
 
 
 upload_folder = os.path.join(os.path.dirname(__file__),'uploads')
@@ -20,6 +36,22 @@ def allowed_file(filename):
 @app.route('/status')
 def home():
     return '<p>200,SERVER UP AND RUNNING.</p>'
+
+@app.route('/login', methods=["POST"])
+def login():
+    conn = psycopg2.connect(os.getenv('pgsql'))
+    data = request.get_json()
+    if not data:
+        return jsonify({"msg":"no input data, try again"}), 401
+    if 'username' and 'email' in data:
+        username = data['username']
+        email = data['email']
+    user = User(username=username,email=email)
+    db.session.add(user)
+    db.session.commit()
+    return jsonify({'conn':conn.status,'msg':'user added successfully',username:username,email:email}),200
+    
+
 
 @app.route('/manim', methods=["POST","GET"])
 def manimResponse():
@@ -53,17 +85,17 @@ def manimResponse():
 
         file = os.path.abspath(f"generated-scripts/{res.className}.py")
 
-        done = subprocess.run(
-            ["manim", "-pql", file, res.className],
-            check=True
-        )
-        # os.system(f"manim -pql {file} {res.className}")
-        if not done:
-            print(done)
-            return {"success":"false", "msg":"not looking good, couldnt run command", "data":f"{request.remote_addr}"},503
-        else:
+        try :
+            subprocess.run(
+                ["manim", "-pql", file, res.className],
+                check=True
+            )
             return {"success":"true", "msg":"looking good", "data":f"{request.remote_addr}", "file":f"{res.className}.py"},200
 
+        except Exception as e:
+            return {"success":"false", "msg":"not looking good, couldnt run command", "data":f"{request.remote_addr}"},503
+            
+        # os.system(f"manim -pql {file} {res.className}")
     except Exception as e:
         print(e)
         return {"success":"false", "msg":f"something went wrong while generating, try again.", "data":f"{request.remote_addr}"},503
@@ -71,7 +103,7 @@ def manimResponse():
 
 
 allowed_files = ['pdf','xlsx','docx']
-@app.route('/upload', methods=['GET','POST']) # post req to receive the files (1) for rag with the prompt, and send the response back.
+@app.route('/upload', methods=['POST']) # post req to receive the files (1) for rag with the prompt, and send the response back.
 def rag():
     if request.method == 'POST':
         if 'file' not in request.files:
@@ -87,10 +119,12 @@ def rag():
         filepath = os.path.join(upload_folder, filename)
 
         file.save(filepath)
+        rag = RagAgent()
 
         print('file saved at:', filepath)
 
-        stores(filepath)
+        rag.store(filepath)
+        rag.infer()
 
         return 'upload successful', 200
     else:
