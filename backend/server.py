@@ -2,8 +2,11 @@ import os
 import subprocess
 import sys
 import jwt
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.dialects.postgresql import UUID
+import uuid
+from marshmallow import Schema, fields
 from flask_cors import CORS 
 import psycopg2
 from pydantic import BaseModel,constr
@@ -15,20 +18,28 @@ app = Flask(__name__)
 CORS(app, resources={
     r'/*':{'origin':'http://localhost:5500'}})
 
+#constants for theapp
+upload_folder = os.path.join(os.path.dirname(__file__),'uploads')
+
 #database config
+app.secret_key = os.getenv('secret-key')
 app.config["SQLALCHEMY_DATABASE_URI"]= os.getenv('pgsql')
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 class User(db.Model):
-    username = db.Column(db.String, primary_key=True)
-    email = db.Column(db.String)
+    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = db.Column(db.String, unique=True, nullable = False)
+    email = db.Column(db.String,unique=True, nullable = False)
 
 with app.app_context():
     db.create_all()
 
+class userValidation(Schema):
+    username = fields.Str(required=True)
+    email = fields.Email(required=True)
 
-upload_folder = os.path.join(os.path.dirname(__file__),'uploads')
+
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in allowed_files
@@ -39,19 +50,37 @@ def home():
 
 @app.route('/login', methods=["POST"])
 def login():
-    conn = psycopg2.connect(os.getenv('pgsql'))
+    # conn = psycopg2.connect(os.getenv('pgsql'))
     data = request.get_json()
     if not data:
         return jsonify({"msg":"no input data, try again"}), 401
+   
     if 'username' and 'email' in data:
         username = data['username']
         email = data['email']
-    user = User(username=username,email=email)
-    db.session.add(user)
-    db.session.commit()
-    return jsonify({'conn':conn.status,'msg':'user added successfully',username:username,email:email}),200
-    
 
+    try: # tries to validate input, if failed returns 401
+        user = User(username=username,email=email)
+        find = User.query.filter(User.username == username, User.email == email).first()
+        if find:
+            return jsonify({"success":False, "msg":"user already exists, Welcome "+username,  "username":username,"email":email})
+        valSchema= userValidation()
+        input = dict(username=username,email=email)
+        check = valSchema.load(input)
+        print(check)
+
+        try: # tries to write to the databse, returns a 503 when failed.
+            db.session.add(user)
+            db.session.commit()
+            session['user_id'] = str(user.id)
+            return jsonify({'success':True,'msg':'user added successfully','username':username,'email':email, "id":session['user_id']}),200
+        except Exception as e:
+            print(e)
+            return jsonify({"success":False, "msg":"Something went wrong, we're fixing it, Hang in there!", "cause":"database-write"}),500
+    except Exception as e:
+        print(e)
+        print(find)
+        return jsonify({'success':False,'msg':'Invalid input credentials, try again.'}),401
 
 @app.route('/manim', methods=["POST","GET"])
 def manimResponse():
