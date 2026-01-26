@@ -13,10 +13,18 @@ this is what's left :
                 |--> Use the input/4 method, saving the last frames for summary and each lasts for 5s.
                 |--> this must aslo include a mini explanation.
 
-3) graphviz/image generation ->
+3) graphviz/image generation -> 
+        for showing the flowchart for the manim illustration, will be called by the agent class.
         - [] Figure out how to compress the image to save on cloud deployment
         - [] find models that are capable of drawing graphs on huggingface
         - [] very descriptive prompt for the generation irrespective of the generation model
+
+3.5) AGENT LAYER -> 
+        -[x] complete the agentic layer 
+        -[] should call the tools on its own based on the user promtp
+        -[] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
+                without errors and somehow be smart enf to fix the error.
+        -[] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
 
 4) server side->
                         [] database connection with Neon

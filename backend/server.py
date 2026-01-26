@@ -130,7 +130,7 @@ def manimResponse():
         return {"success":"false", "msg":f"something went wrong while generating, try again.", "data":f"{request.remote_addr}"},503
 
 
-
+# replace all this with a chat endpoint that calls 
 allowed_files = ['pdf','xlsx','docx']
 @app.route('/upload', methods=['POST']) # post req to receive the files (1) for rag with the prompt, and send the response back.
 def rag():

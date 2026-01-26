@@ -9,3 +9,8 @@ glyphDB/*
 !.env.example
 
 generated-scripts
+generated-flowcharts
+
+*.svg
+*.png
+*.jpeg

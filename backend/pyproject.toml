@@ -9,6 +9,7 @@ dependencies = [
     "flask-cors>=6.0.2",
     "flask-sqlalchemy>=3.1.1",
     "google-genai>=1.57.0",
+    "graphviz>=0.21",
     "huggingface-hub>=0.36.0",
     "langchain>=1.2.3",
     "langchain-chroma>=1.1.0",
