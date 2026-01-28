@@ -132,19 +132,19 @@ class Flowchart():
 
 #  ================ USE THIS ONLY TO TEST =====================
 # if __name__ == "__main__":
-#     input = "generate a flowchart to illustrate binary search."
-#     res = mermaid(input)
-#     base_dir = os.path.dirname(os.path.abspath(__file__))
-#     gen_dir = os.path.join(base_dir, "generated-flowcharts")
-#     os.makedirs(gen_dir, exist_ok=True)
-#     gen = os.path.join(gen_dir, f"{res.className}.py")
+    # input = "generate a flowchart to illustrate binary search."
+    # res = Flowchart(input)
+    # base_dir = os.path.dirname(os.path.abspath(__file__))
+    # gen_dir = os.path.join(base_dir, "generated-flowcharts")
+    # os.makedirs(gen_dir, exist_ok=True)
+    # gen = os.path.join(gen_dir, f"{res.className}.py")
 
-#     if len(res.code) > 10:
-#         print('writing to a file')
-#         with open (gen, 'w') as f:
-#             f.write(res.code)
+    # if len(res.code) > 10:
+    #     print('writing to a file')
+    #     with open (gen, 'w') as f:
+    #         f.write(res.code)
 
-#     file = os.path.abspath(f"generated-flowcharts/{res.className}.py")
+    # file = os.path.abspath(f"generated-flowcharts/{res.className}.py")
 #     subprocess.run(
 #         [sys.executable, file],
 #         check=True

@@ -96,23 +96,24 @@ def manimResponse():
         }
     }
     try:
-        data = request.get_json()
-        input = data.get('prompt')
-        print(input)
-        print("api gateway")
-        manimInstance = Manim(response_format=response_format, prompt = input)
-        res = manimInstance.inferModel(model=ModelResponse)
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        gen_dir = os.path.join(base_dir, "generated-scripts")
-        os.makedirs(gen_dir, exist_ok=True)
-        gen = os.path.join(gen_dir, f"{res.className}.py")
+        # data = request.get_json()
+        # input = data.get('prompt')
+        # print(input)
+        # print("api gateway")
+        # manimInstance = Manim(response_format=response_format, prompt = input)
+        # res = manimInstance.inferModel(model=ModelResponse)
+        # base_dir = os.path.dirname(os.path.abspath(__file__))
+        # gen_dir = os.path.join(base_dir, "generated-scripts")
+        # os.makedirs(gen_dir, exist_ok=True)
+        # gen = os.path.join(gen_dir, f"{res.className}.py")
 
-        if len(res.code) > 10:
-            print('writing to a file')
-            with open (gen, 'w') as f:
-                f.write(res.code)
+        # if len(res.code) > 10:
+        #     print('writing to a file')
+        #     with open (gen, 'w') as f:
+        #         f.write(res.code)
 
-        file = os.path.abspath(f"generated-scripts/{res.className}.py")
+        # file = os.path.abspath(f"generated-scripts/{res.className}.py")
+        WE ARE GONNA USE THE AGENT HERE INSTEAD OF AN ACTUAL CALL, WE USE THE AGENT TO DO THE WORK AND RETURN AN AWS STRING
 
         try :
             subprocess.run(
