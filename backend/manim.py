@@ -23,6 +23,8 @@ class Manim:
 
         prompt= f"""{input}
             YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
+            IF THE CODE INCLUDES AN ERROR MESSAGE OR ANY SUGGESTIONS THEN AVOID THAT ERROR IN THE OUTPUT CODE, AND INCLUDE THE SUGGESTION IN OUTPUT CODE,
+                MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE.
             THE SYSTEM MESSAGE FOR THE CODE GENERATION IS AS FOLLOWS YOU ARE TO STRICTLY ADHERE TO EVERY SINGLE RULE IN THIS
             You MUST return a valid JSON object with this EXACT structure:
                 {{
@@ -63,7 +65,12 @@ class Manim:
         messages=[
             {
                 "role":"system",
-                "content":"You are a manim developer, you are tasked to strictly return only code for manim illustrations in the form of the given json response format"
+                "content":
+                """
+                    You are a manim developer, you are tasked to strictly return only code for manim illustrations
+                    in the form of the given json response format.
+                    If the input prompt does include an error code, try to avoid the error in the output.
+                """
             },
             {
                 "role": "user",
