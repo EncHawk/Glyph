@@ -28,10 +28,12 @@ load_dotenv()
 # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
 class RagAgent:
-    def __init__(self, embeddings, model):
+    def __init__(self, embeddings, model, session_id):
         self.embeddings = embeddings
         self.model = model
-        self.active_sessions = {}
+        self.session_id = session_id
+        self.active_sessions = {"session_id":session_id}
+
 
     def get_user_vector_store(self, session_id: str):
         if session_id not in self.active_sessions:
@@ -46,7 +48,7 @@ class RagAgent:
     def store(self, source, session_id: str, is_text=False):
         vector_store = self.get_user_vector_store(session_id)
 
-        if os.listdir(source) == []:
+        if is_text:
             documents = [Document(
                 page_content=source,
                 metadata={'source': 'raw_text', 'session_id': session_id}
@@ -81,13 +83,13 @@ class RagAgent:
         prompt = "Use the retrieval tool to answer queries for this session."
 
         agent = create_agent(self.model, tools, system_prompt=prompt)
+            
+        response = agent.invoke({"messages": [{"role": "user", "content": query}]})
 
-        for event in agent.stream(
-            {"messages": [{"role": "user", "content": query}]},
-            stream_mode="values"
-        ):
-            event["messages"][-1].pretty_print()
+        return response["structured_output"]
+        
 
+    # more or less, un-needed.
     def cleanup_session(self, session_id: str):
         if session_id in self.active_sessions:
             import shutil

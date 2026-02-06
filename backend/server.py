@@ -12,6 +12,7 @@ import psycopg2
 from pydantic import BaseModel,constr
 from manim import Manim
 from rag import RagAgent
+from AGENT import Agent
 
 
 app = Flask(__name__)
@@ -82,6 +83,20 @@ def login():
         print(find)
         return jsonify({'success':False,'msg':'Invalid input credentials, try again.'}),401
 
+
+@app.route('/chat',methods=["POST"])
+def chat():
+    input = request.get_json()
+    query = input.get('prompt')
+    # this prompt must go in the agent's class. 
+    user_id = session.get('user_id')
+    agent = Agent(session_id= user_id, attempts=3)
+    agent_response = agent.run_agent(query=query) ## gonna return an AWS string.
+
+    
+
+
+
 @app.route('/manim', methods=["POST","GET"])
 def manimResponse():
     class ModelResponse(BaseModel):
@@ -113,7 +128,7 @@ def manimResponse():
         #         f.write(res.code)
 
         # file = os.path.abspath(f"generated-scripts/{res.className}.py")
-        WE ARE GONNA USE THE AGENT HERE INSTEAD OF AN ACTUAL CALL, WE USE THE AGENT TO DO THE WORK AND RETURN AN AWS STRING
+        # WE ARE GONNA USE THE AGENT HERE INSTEAD OF AN ACTUAL CALL, WE USE THE AGENT TO DO THE WORK AND RETURN AN AWS STRING
 
         try :
             subprocess.run(
@@ -129,7 +144,6 @@ def manimResponse():
     except Exception as e:
         print(e)
         return {"success":"false", "msg":f"something went wrong while generating, try again.", "data":f"{request.remote_addr}"},503
-
 
 # replace all this with a chat endpoint that calls 
 allowed_files = ['pdf','xlsx','docx']

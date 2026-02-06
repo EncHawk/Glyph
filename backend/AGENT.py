@@ -3,7 +3,9 @@ import sys
 import subprocess
 from manim import Manim
 from flowchart import Flowchart
+import jsonify
 from rag import RagAgent
+import boto3
 from langchain_hub import InferenceClient
 from pydantic import BaseModel, ValidationError, constr
 from langchain.tools import tool
@@ -16,10 +18,9 @@ class Agent:
     # def MANIM(self,query):
     #     instance = Manim()
 
-    def __init__(self, session_id, attempts, query):
+    def __init__(self, session_id, attempts):
         self.session_id = session_id
         self.attempts = attempts
-        self.query = query
         
         self.hf_llm = HuggingFaceEndpoint(
             repo_id="zai-org/GLM-4.7",
@@ -172,54 +173,58 @@ class Agent:
         }
 
 
-    def run_agent(self,placeholder):
+    def run_agent(self, query):
         """
         Docstring for Agent
         
         :param self: Description
         :param query: user's input to be processed and classified to perform any of the provided tools
         """
-        # self.query= query
-        prompt = """
-            YOUR TASK IS TO VALIDATE THE USER'S QUERY AND CHOOSE WHICH TOOL TO CALL, ENSURE THAT THE TOOLS ARE CALLED UNTIL THEY ARE NOT ERROR FREE.
-            YOU HAVE ACCESS TO THE FOLLOWING TOOLS:
-                -- MANIM : GENERATES A MANIM ILLUSTRATION OF .mp4 UPON BEING CALLED WITH THE ILLUSTRATION QUERY FROM THE USER,
-                    YOUR TASK IS TO ENSURE THAT THE OUTPUT CODE DOES NOT COME OUT AS AN ERROR.
-                -- GRAPHVIZ : GENERATES A FLOWCHART FOR THE MANIM ILLUSTRATION, THE USER MUST BE SENT THIS FIRST, UPON BEING APPROVED BY THE USER, 
-                    THE MANIM TOOL MUST BE CALLED WITH THE FEATURES ASKED BY THE USER BEING CONCATENATED INTO THE MANIM TOOL'S PROMPT
-                -- TEXT : THIS TOOL GENERATES THE TEXT FOR THE USER'S QUERY, THIS TOOL MUST BE CALLED WHEN THE USER HAS NOT SPECIFICALLY ASKED FOR AN ILLUSTRATION.
-            STRICT RULES:
-        """
-        
         # tools = [manim_tool,flowchart_tool,contextual_text_tool]
         prompt = f"""
-        You must choose exactly ONE word. nothing else, no extra unnecessary tokens. you are a middle man who needs to decide which operation to perform 
-            based on the user's input, if its an illustration or any visualisation
+            You must choose exactly ONE word. nothing else, no extra unnecessary tokens. you are a middle man who needs to decide which operation to perform 
+                based on the user's input, if its an illustration or any visualisation
 
-        Options:
-        - manim_tool
-        - flowchart_tool
+            Options:
+            - manim_tool
+            - flowchart_tool
 
-        Rules:
-        - Output ONLY one word
-        - No punctuation
-        - No explanation
-        - No extra text
+            Rules:
+            - Output ONLY one word
+            - No punctuation
+            - No explanation
+            - No extra text
+            - THE OUTPUT MUST BE FROM WITHIN WHAT EVER THE OPTIONS ARE, NOTHING ELSE MUST BE IN THE OUTPUT. 
 
-        User request:
-        {self.query}
+            User request:
+            {query}
         """
         response = self.model.invoke(prompt)
         choice = response.content.strip().lower()
 
+        tools_map = {
+            "manim_tool" : ("manim", self.run_with_retry(self.manim_tool, self.query)),
+            "flowchart_tool": ("flowchart",self.run_with_retry(self.flowchart_tool, self.query))
+        }
+
         if "manim_tool" in choice:
-            return self.run_with_retry(self.manim_tool, self.query)
+            return jsonify({
+                "tool": "manim",
+                "data": f"{self.run_with_retry(self.manim_tool, self.query)}"
+            }), 200
 
         elif "flowchart_tool" in choice:
-            return self.run_with_retry(self.flowchart_tool, self.query)
+            return jsonify({
+                "tool": "flowchart",
+                "data": f"{self.run_with_retry(self.flowchart_tool, self.query)}"
+            }), 200
 
         else:
-            return self.run_with_retry(self.flowchart_tool, self.query)
+            return jsonify({
+                "tool": "flowchart",
+                "data": f"{self.run_with_retry(self.flowchart_tool, self.query)}"
+            }), 200
+
 # based on what the llm says, choose which one to run        
 
         

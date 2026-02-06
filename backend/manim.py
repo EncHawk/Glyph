@@ -4,6 +4,7 @@ import subprocess
 import json
 import os
 import sys
+import boto3
 from pydantic import BaseModel, ValidationError, constr
 from dotenv import load_dotenv
 load_dotenv()
