@@ -8,10 +8,8 @@ import datetime
 from flask import Flask, request, render_template, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
-import uuid
 from marshmallow import Schema, fields
 from flask_cors import CORS 
-import psycopg2
 from pydantic import BaseModel,constr
 from manim import Manim
 from rag import RagAgent
@@ -22,6 +20,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
 GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
 MEDIA_DIR = os.path.join(ROOT_DIR, "media")
+FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
 
 
@@ -93,44 +92,20 @@ def login():
         print(find)
         return jsonify({'success':False,'msg':'Invalid input credentials, try again.'}),401
 
-def manim_response(className:str, s3_bucket_name: str):
-    os.makedirs(GEN_DIR, exist_ok=True)
-    os.makedirs(MEDIA_DIR, exist_ok=True)
-    assert os.makedirs(os.path.exists(MEDIA_DIR, f"{className}.mp4"), exist_ok=True)
-    s3 = boto3.resource(
-        's3',
-        aws_access_key = os.getenv('aws_access_key_id'),
-        aws_secret_access_key = os.getenv('aws_secret_access_key'),
-        region_name = os.getenv('aws_region')
-    )
-    output_vid = os.path.abspath(MEDIA_DIR, f"{className}.mp4")
-    try:
-        subprocess.run(
-            ["manim", "-pql", file_path, className],
-            check=True
-        )
-    except Exception as e:
-        print("Manim died:", e)
-        raise Exception("Manim render failed")
-    s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
-    try:
-        s3.Bucket(s3_bucket_name).upload_video(output_vid, s3_key)
-    except botocore.exceptions.ClientError as e:
-        print("S3 upload failed:", e)
-        raise Exception("S3 upload failed")
-    s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
-    return s3_url
-
 @app.route('/chat',methods=["POST"])
 def chat():
     input = request.get_json()
     query = input.get('prompt')
     # this prompt must go in the agent's class. 
     user_id = session.get('user_id')
-    agent = Agent(session_id= user_id, attempts=3)
+    agent = Agent(session_id= user_id, attempts=3) 
+    # TODO: use_LLM is set to True by default, change it to False in case of a basic call.
+
     agent_response = agent.run_agent(query=query) # has data, and tool payload
     # instead of making the aws upload from teh agent class, we do it in separate functions instead.
     code = agent_response.data
+
+    # TODO: decide on this, whether or not we need this for later or replace this on the `AGENT()` class
     if "manim" in agent_response.tool:
         manim_response()
     elif "flowchart" in agent_response.tool:

@@ -1,11 +1,13 @@
 import os
 import sys
+import datetime
 import subprocess
 from manim import Manim
 from flowchart import Flowchart
 import jsonify
 from rag import RagAgent
 import boto3
+import botocore
 from langchain_hub import InferenceClient
 from pydantic import BaseModel, ValidationError, constr
 from langchain.tools import tool
@@ -13,15 +15,18 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint, HuggingF
 from langchain.agents import create_agent
 from langchain.agents.middleware import wrap_model_call, ModelResponse, ModelRequest
 # this is essentially only gonna return the output of any of the tools RAG , manim or flowchart
-class Agent:
-    # @tool
-    # def MANIM(self,query):
-    #     instance = Manim()
 
-    def __init__(self, session_id, attempts):
+
+class Agent:
+    def __init__(self, session_id, attempts, use_LLM = True):
         self.session_id = session_id
         self.attempts = attempts
-        
+        ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
+        GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
+        MEDIA_DIR = os.path.join(ROOT_DIR, "media")
+        FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
+
         self.hf_llm = HuggingFaceEndpoint(
             repo_id="zai-org/GLM-4.7",
             task="text-generation",
@@ -37,6 +42,12 @@ class Agent:
         self.advanced_model = ChatHuggingFace(llm=self.hf_llm)
         self.basic_model = ChatHuggingFace(llm=self.basic_llm)
         self.model = self.basic_model
+        # the paths for the directories
+        self.ROOT_DIR = ROOT_DIR
+        self.GEN_DIR = GEN_DIR
+        self.GEN_FLOW = GEN_FLOW
+        self.MEDIA_DIR = MEDIA_DIR
+        self.FLOWCHART_MEDIA_DIR = FLOWCHART_MEDIA_DIR
 
     class ModelResponse(BaseModel):
         code:constr(min_length=1, strip_whitespace=True)
@@ -109,6 +120,76 @@ class Agent:
         response_code = instance.inferModel(input=prompt)
         return response_code
     
+    def manim_response(self,className:str, s3_bucket_name: str):
+        os.makedirs(self.GEN_DIR, exist_ok=True)
+        os.makedirs(self.MEDIA_DIR, exist_ok=True)
+        assert os.makedirs(os.path.exists(self.MEDIA_DIR, f"{className}.mp4"), exist_ok=True)
+        s3 = boto3.resource(
+            's3',
+            aws_access_key = os.getenv('aws_access_key_id'),
+            aws_secret_access_key = os.getenv('aws_secret_access_key'),
+            region_name = os.getenv('aws_region')
+        )
+        output_vid = os.path.abspath(self.GEN_DIR, f"{className}.py")
+        try:
+            subprocess.run(
+                ["manim", "-pql", output_vid, className],
+                check=True
+            )
+        except Exception as e:
+            print("Manim died:", e)
+            raise Exception("Manim render failed")
+        s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
+        try:
+            s3.Bucket(s3_bucket_name).upload_video(output_vid, s3_key)
+        except botocore.exceptions.ClientError as e:
+            print("S3 upload failed:", e)
+            raise Exception("S3 upload failed")
+        s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
+        return s3_url
+
+    def flowchart_response(self,className:str, s3_bucket_name:str):
+        """
+        Docstring for flowchart_response
+
+        :param className: THE CLASSNAME IS THE NAME OF THE DIGRAPH CLASS, WHICH IS GONNA BE THE NAME OF THE FILE AS WELL.
+        :type className: str
+        :param s3_bucket_name: Description
+        :type s3_bucket_name: str
+        :return: Description
+        :rtype: type[that]
+        """
+        os.makedirs(self.GEN_FLOW, exist_ok=True)
+        os.makedirs(self.FLOWCHART_MEDIA_DIR, exist_ok=True) 
+        assert os.makedirs(os.path.exists(self.FLOWCHART_MEDIA_DIR, f"{className}.svg"), exist_ok=True)
+
+        s3 = boto3.resource(
+            's3',
+            aws_access_key = os.getenv('aws_access_key_id'),
+            aws_secret_access_key = os.getenv('aws_secret_access_key'),
+            region_name = os.getenv('aws_region')
+        )
+        output_img = os.path.abspath(self.FLOWCHART_MEDIA_DIR, f"{className}.svg")
+        try:
+            subprocess.run(
+                [sys.executable, f"{className}.py"],
+                check=True
+            )
+        except Exception as e:
+            print("Flowchart generation messed up:", e)
+            raise Exception("Flowchart render failed")
+
+        s3_key = f"flowchart/{className}_{datetime.datetime.now().isoformat()}.svg"
+        try:
+            extra_args = {"Content-Type" : 'image/xml/+svg'}
+            s3.Bucket(s3_bucket_name).upload_file(output_img, s3_key, ExtraArgs=extra_args)
+
+        except botocore.exceptions.ClientError as e:
+            print("S3 upload failed:", e)
+            raise Exception("S3 upload failed")
+        s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
+        return s3_url
+
     @tool
     def flowchart_tool(self,prompt):
             """
@@ -143,6 +224,7 @@ class Agent:
                     [sys.executable, file],
                     check=True
                 )
+                s3_string = self.flowchart_response(f"{res.className}",'glyph-data-storage')
                 return {
                     "ok" :True,
                     "result": "image successfully created. take this!",

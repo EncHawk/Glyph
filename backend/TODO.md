@@ -27,6 +27,8 @@ this is what's left :
                 without errors and somehow be smart enf to fix the error.
         -[x] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
 
+        -[] add the helper functions that end up uploading to AWS and returns the string.
+
 4) server side->
                         [] database connection with Neon
                         [] AWS , Cloudinary or other service for the files and images.
