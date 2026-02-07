@@ -61,69 +61,10 @@ class Agent:
         }
     }
 
-    @tool
-    def manim_tool(self,prompt):
-        """
-        Docstring for Manim
-        
-        :param prompt: the input prompt to generate the illustration code
-        """
-        class ModelResponse(BaseModel):
-            code:constr(min_length=1, strip_whitespace=True)
-            className:str
-        response_format = {
-            "type":"json_schema",
-            "json_schema":{
-                "name" : "Model_Response",
-                "schema":ModelResponse.model_json_schema(),
-                "strict":True
-            }
-        }
-        try:
-            instance = Manim(response_format=response_format, prompt=prompt)
-            response_text = instance.inferModel(model=ModelResponse)
-            file = os.path.abspath(f"generated-scripts/{response_text.className}.py")
-
-            subprocess.run(
-                ["manim", "-pql", file, response_text.className],
-                check=True
-            )
-            return {"ok":True, "msg":"File Ran successfully, return mp4 string only for manim", "string":"AWS_HOST_STRING"}
-        except Exception as e:
-            return {'ok':False,"error":str(e)}
-
-    @tool
-    def contextual_text_tool(self,prompt):
-        """
-        Docstring for flowchart
-        
-        :param prompt: the prompt to generate the code for graphviz flowchart
-        """
-        class ModelResponse(BaseModel):
-            code:constr(min_length=1, strip_whitespace=True)
-            className:str
-        response_format = {
-            "type":"json_schema",
-            "json_schema":{
-                "name" : "Model_Response",
-                "schema":ModelResponse.model_json_schema(),
-                "strict":True
-            }
-        }
-        llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
-            repo_id= "Qwen/Qwen2.5-7B-Instruct",
-            temperature = 0.7,
-        )
-        model = ChatHuggingFace(llm=llm)
-        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
-        instance = RagAgent(embeddings=embeddings,model=model)
-        response_code = instance.inferModel(input=prompt)
-        return response_code
-    
     def manim_response(self,className:str, s3_bucket_name: str):
         os.makedirs(self.GEN_DIR, exist_ok=True)
         os.makedirs(self.MEDIA_DIR, exist_ok=True)
-        assert os.makedirs(os.path.exists(self.MEDIA_DIR, f"{className}.mp4"), exist_ok=True)
+        assert os.path.join(self.MEDIA_DIR, "videos", "480p15", f"{className}.mp4")
         s3 = boto3.resource(
             's3',
             aws_access_key = os.getenv('aws_access_key_id'),
@@ -161,7 +102,7 @@ class Agent:
         """
         os.makedirs(self.GEN_FLOW, exist_ok=True)
         os.makedirs(self.FLOWCHART_MEDIA_DIR, exist_ok=True) 
-        assert os.makedirs(os.path.exists(self.FLOWCHART_MEDIA_DIR, f"{className}.svg"), exist_ok=True)
+        assert os.path.join(self.FLOWCHART_MEDIA_DIR, f"{className}.svg")
 
         s3 = boto3.resource(
             's3',
@@ -190,70 +131,142 @@ class Agent:
         s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
         return s3_url
 
-    @tool
-    def flowchart_tool(self,prompt):
-            """
-            Docstring for flowchart
-            
-            :param prompt: the prompt to generate the code for graphviz flowchart
-            """
-            class ModelResponse(BaseModel):
-                code:constr(min_length=1, strip_whitespace=True)
-                className:str
-            response_format = {
-                "type":"json_schema",
-                "json_schema":{
-                    "name" : "Model_Response",
-                    "schema":ModelResponse.model_json_schema(),
-                    "strict":True
-                }
+    def manim_tool(self,prompt):
+        """
+        Docstring for Manim
+        
+        :param prompt: the input prompt to generate the illustration code
+        """
+        class ModelResponse(BaseModel):
+            code:constr(min_length=1, strip_whitespace=True)
+            className:str
+        response_format = {
+            "type":"json_schema",
+            "json_schema":{
+                "name" : "Model_Response",
+                "schema":ModelResponse.model_json_schema(),
+                "strict":True
             }
-            try:
-                res = Flowchart(input=prompt)
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                gen_dir = os.path.join(base_dir, "generated-flowcharts")
-                os.makedirs(gen_dir, exist_ok=True)
-                gen = os.path.join(gen_dir, f"{res.className}.py")
-                if len(res.code) > 10:
-                    print('writing to a file')
-                    with open (gen, 'w') as f:
-                        f.write(res.code)
-                os.makedirs("generated-scripts", exist_ok=True)
-                file = os.path.abspath(f"generated-flowcharts/{res.className}.py")
-                subprocess.run(
-                    [sys.executable, file],
-                    check=True
-                )
-                s3_string = self.flowchart_response(f"{res.className}",'glyph-data-storage')
-                return {
-                    "ok" :True,
-                    "result": "image successfully created. take this!",
-                    "string":"aws hosted string for the svg"
-                }
-            except Exception as e:
-                return {
-                    "ok":False,
-                    "error":str(e)
-                }
+        }
+        try:
+            instance = Manim(response_format=response_format, prompt=prompt)
+            response_text = instance.inferModel(model=ModelResponse)
+            file = os.path.abspath(f"generated-scripts/{response_text.className}.py")
 
+            subprocess.run(
+                ["manim", "-pql", file, response_text.className],
+                check=True
+            )
+            aws_string = self.manim_response(response_text.className, 'glyph-data-storage')
+            return {"ok":True, "msg":"File Ran successfully, return mp4 string only for manim", "string":aws_string}
+        except Exception as e:
+            return {'ok':False,"error":str(e)}
+
+    def contextual_text_tool(self,prompt):
+        """
+        Docstring for flowchart
+        
+        :param prompt: the prompt to generate the code for graphviz flowchart
+        """
+        class ModelResponse(BaseModel):
+            code:constr(min_length=1, strip_whitespace=True)
+            className:str
+        response_format = {
+            "type":"json_schema",
+            "json_schema":{
+                "name" : "Model_Response",
+                "schema":ModelResponse.model_json_schema(),
+                "strict":True
+            }
+        }
+        llm = HuggingFaceEndpoint( # add your huggingface token, this shit free and good heck yeah!
+            repo_id= "Qwen/Qwen2.5-7B-Instruct",
+            temperature = 0.7,
+        )
+        model = ChatHuggingFace(llm=llm)
+        embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+        instance = RagAgent(embeddings=embeddings,model=model)
+        response_code = instance.inferModel(input=prompt)
+        return response_code
+    
+    def flowchart_tool(self,prompt):
+        """
+        Docstring for flowchart
+        
+        :param prompt: the prompt to generate the code for graphviz flowchart
+        """
+        class ModelResponse(BaseModel):
+            code:constr(min_length=1, strip_whitespace=True)
+            className:str
+        response_format = {
+            "type":"json_schema",
+            "json_schema":{
+                "name" : "Model_Response",
+                "schema":ModelResponse.model_json_schema(),
+                "strict":True
+            }
+        }
+        try:
+            res = Flowchart(input=prompt)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            gen_dir = os.path.join(base_dir, "generated-flowcharts")
+            os.makedirs(gen_dir, exist_ok=True)
+            gen = os.path.join(gen_dir, f"{res.className}.py")
+            if len(res.code) > 10:
+                print('writing to a file')
+                with open (gen, 'w') as f:
+                    f.write(res.code)
+            os.makedirs("generated-scripts", exist_ok=True)
+            file = os.path.abspath(f"generated-flowcharts/{res.className}.py")
+            subprocess.run(
+                [sys.executable, file],
+                check=True
+            )
+            s3_string = self.flowchart_response(f"{res.className}",'glyph-data-storage')
+            return {
+                "ok" :True,
+                "result": "image successfully created. take this!",
+                "string":s3_string
+            }
+        except Exception as e:
+            return {
+                "ok":False,
+                "error":str(e)
+            }
+            
     def run_with_retry(self, tool, prompt):
         last_error = None
+        context = prompt
 
-        for _ in range(self.attempts):
-            result = tool(prompt)
+        for attempt in range(self.attempts):
+            result = tool(context)
 
             if result.get("ok"):
                 return result
 
             last_error = result.get("error")
-            prompt += f"\n\nPrevious error:\n{last_error}\nFix it."
+            
+            context = f"""
+        Original request: {prompt}
+
+        Previous attempt {attempt + 1} failed with error:
+        {last_error}
+
+        Instructions to fix:
+        - Review the error message carefully
+        - Ensure the code is syntactically correct
+        - For Manim: ensure all imports are correct and the Scene class is properly defined
+        - For Flowchart: ensure Graphviz syntax is valid
+        - Generate corrected code
+
+        Generate the corrected code now:
+        """
 
         return {
             "ok": False,
             "error": f"Failed after {self.attempts} attempts",
             "last_error": last_error
         }
-
 
     def run_agent(self, query):
         """
@@ -285,26 +298,26 @@ class Agent:
         choice = response.content.strip().lower()
 
         tools_map = {
-            "manim_tool" : ("manim", self.run_with_retry(self.manim_tool, self.query)),
-            "flowchart_tool": ("flowchart",self.run_with_retry(self.flowchart_tool, self.query))
+            "manim_tool" : ("manim", self.run_with_retry(self.manim_tool, query)),
+            "flowchart_tool": ("flowchart",self.run_with_retry(self.flowchart_tool, query))
         }
 
         if "manim_tool" in choice:
             return jsonify({
                 "tool": "manim",
-                "data": f"{self.run_with_retry(self.manim_tool, self.query)}"
+                "data": f"{self.run_with_retry(self.manim_tool, query)}"
             }), 200
 
         elif "flowchart_tool" in choice:
             return jsonify({
                 "tool": "flowchart",
-                "data": f"{self.run_with_retry(self.flowchart_tool, self.query)}"
+                "data": f"{self.run_with_retry(self.flowchart_tool, query)}"
             }), 200
 
         else:
             return jsonify({
                 "tool": "flowchart",
-                "data": f"{self.run_with_retry(self.flowchart_tool, self.query)}"
+                "data": f"{self.run_with_retry(self.flowchart_tool, query)}"
             }), 200
 
 # based on what the llm says, choose which one to run        
