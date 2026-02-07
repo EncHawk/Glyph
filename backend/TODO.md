@@ -12,6 +12,7 @@ this is what's left :
         - [x] Add logic to make sure the video's length does not cross 25seconds.
                 |--> Use the input/4 method, saving the last frames for summary and each lasts for 5s.
                 |--> this must aslo include a mini explanation.
+        - [] FFMPEG in order to reduce the size or create a new filtype before being uploaded
 
 3) graphviz/image generation -> 
         for showing the flowchart for the manim illustration, will be called by the agent class.
@@ -21,10 +22,10 @@ this is what's left :
 
 3.5) AGENT LAYER -> 
         -[x] complete the agentic layer 
-        -[] should call the tools on its own based on the user promtp
-        -[] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
+        -[x] should call the tools on its own based on the user promtp
+        -[x] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
                 without errors and somehow be smart enf to fix the error.
-        -[] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
+        -[x] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
 
 4) server side->
                         [] database connection with Neon

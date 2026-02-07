@@ -2,6 +2,9 @@ import os
 import subprocess
 import sys
 import jwt
+import boto3
+import botocore
+import datetime
 from flask import Flask, request, render_template, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
@@ -13,6 +16,13 @@ from pydantic import BaseModel,constr
 from manim import Manim
 from rag import RagAgent
 from backend.src.AGENT import Agent
+
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
+GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
+MEDIA_DIR = os.path.join(ROOT_DIR, "media")
+
 
 
 app = Flask(__name__)
@@ -83,8 +93,33 @@ def login():
         print(find)
         return jsonify({'success':False,'msg':'Invalid input credentials, try again.'}),401
 
-def manim_tool(className):
-    os.makedirs(os.pardir(__file__), 'generated-scripts')
+def manim_response(className:str, s3_bucket_name: str):
+    os.makedirs(GEN_DIR, exist_ok=True)
+    os.makedirs(MEDIA_DIR, exist_ok=True)
+    assert os.makedirs(os.path.exists(MEDIA_DIR, f"{className}.mp4"), exist_ok=True)
+    s3 = boto3.resource(
+        's3',
+        aws_access_key = os.getenv('aws_access_key_id'),
+        aws_secret_access_key = os.getenv('aws_secret_access_key'),
+        region_name = os.getenv('aws_region')
+    )
+    output_vid = os.path.abspath(MEDIA_DIR, f"{className}.mp4")
+    try:
+        subprocess.run(
+            ["manim", "-pql", file_path, className],
+            check=True
+        )
+    except Exception as e:
+        print("Manim died:", e)
+        raise Exception("Manim render failed")
+    s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
+    try:
+        s3.Bucket(s3_bucket_name).upload_video(output_vid, s3_key)
+    except botocore.exceptions.ClientError as e:
+        print("S3 upload failed:", e)
+        raise Exception("S3 upload failed")
+    s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
+    return s3_url
 
 @app.route('/chat',methods=["POST"])
 def chat():
@@ -93,8 +128,8 @@ def chat():
     # this prompt must go in the agent's class. 
     user_id = session.get('user_id')
     agent = Agent(session_id= user_id, attempts=3)
-    agent_response = agent.run_agent(query=query)
-    # instead of making the aws upload from teh agent class, we do it here instead.
+    agent_response = agent.run_agent(query=query) # has data, and tool payload
+    # instead of making the aws upload from teh agent class, we do it in separate functions instead.
     code = agent_response.data
     if "manim" in agent_response.tool:
         manim_response()
@@ -157,6 +192,12 @@ def manimResponse():
 allowed_files = ['pdf','xlsx','docx']
 @app.route('/upload', methods=['POST']) # post req to receive the files (1) for rag with the prompt, and send the response back.
 def rag():
+    """
+    Docstring for rag
+    
+    :return: Description
+    :rtype: type[that]
+    """
     if request.method == 'POST':
         if 'file' not in request.files:
             return 'no file found, try again', 401
@@ -198,8 +239,6 @@ def rag_response():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
     rag = RagAgent(embeddings=embeddings, model=model)
     rag.store()
-    
-      
 
 if __name__ =="__main__":
     app.run(host="0.0.0.0", port="8080",debug=True)
