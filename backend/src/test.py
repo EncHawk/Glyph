@@ -1,4 +1,4 @@
-from manim import *
+from backend.src.manim_agent import *
 import numpy as np
 
 class NeuralNetworkIllustration(Scene):

@@ -4,16 +4,18 @@ import sys
 import jwt
 import boto3
 import botocore
+import uuid
 import datetime
 from flask import Flask, request, render_template, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
 from marshmallow import Schema, fields
 from flask_cors import CORS 
+import manim_agent as Manim
 from pydantic import BaseModel,constr
-from manim import Manim
+import manim
 from rag import RagAgent
-from backend.src.AGENT import Agent
+from AGENT import Agent
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -96,20 +98,20 @@ def login():
 def chat():
     input = request.get_json()
     query = input.get('prompt')
+    if not query:
+        return jsonify({"msg":"No input found, try sending smtn next time"}),403
     # this prompt must go in the agent's class. 
     user_id = session.get('user_id')
-    agent = Agent(session_id= user_id, attempts=3) 
-    # TODO: use_LLM is set to True by default, change it to False in case of a basic call.
+    try:
+        agent = Agent(session_id= user_id, attempts=3) 
+        # TODO: use_LLM is set to True by default, change it to False in case of a basic call.
 
-    agent_response = agent.run_agent(query=query) # has data, and tool payload
-    # instead of making the aws upload from teh agent class, we do it in separate functions instead.
-    code = agent_response.data
-
-    # TODO: decide on this, whether or not we need this for later or replace this on the `AGENT()` class
-    if "manim" in agent_response.tool:
-        manim_response()
-    elif "flowchart" in agent_response.tool:
-        flowchart_response()
+        agent_response = agent.run_agent(query=query) # has data, and tool payload
+        # instead of making the aws upload from teh agent class, we do it in separate functions instead.
+        aws_string = agent_response.string
+        return jsonify({"msg":"uploaded successfully", "url":aws_string}),200
+    except Exception as e:
+        return jsonify({"msg":"something went wrong, we're working on it!"}),500
 
     
 

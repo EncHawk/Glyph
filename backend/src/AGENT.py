@@ -2,13 +2,13 @@ import os
 import sys
 import datetime
 import subprocess
-from manim import Manim
+from manim_agent import Manim
 from flowchart import Flowchart
 import jsonify
 from rag import RagAgent
 import boto3
 import botocore
-from langchain_hub import InferenceClient
+from huggingface_hub import InferenceClient
 from pydantic import BaseModel, ValidationError, constr
 from langchain.tools import tool
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint, HuggingFaceEmbeddings
@@ -247,20 +247,20 @@ class Agent:
             last_error = result.get("error")
             
             context = f"""
-        Original request: {prompt}
+            Original request: {prompt}
 
-        Previous attempt {attempt + 1} failed with error:
-        {last_error}
+            Previous attempt {attempt + 1} failed with error:
+            {last_error}
 
-        Instructions to fix:
-        - Review the error message carefully
-        - Ensure the code is syntactically correct
-        - For Manim: ensure all imports are correct and the Scene class is properly defined
-        - For Flowchart: ensure Graphviz syntax is valid
-        - Generate corrected code
+            Instructions to fix:
+            - Review the error message carefully
+            - Ensure the code is syntactically correct
+            - For Manim: ensure all imports are correct and the Scene class is properly defined
+            - For Flowchart: ensure Graphviz syntax is valid
+            - Generate corrected code
 
-        Generate the corrected code now:
-        """
+            Generate the corrected code now:
+            """
 
         return {
             "ok": False,
