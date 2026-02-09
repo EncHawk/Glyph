@@ -16,27 +16,30 @@ this is what's left :
 
 3) graphviz/image generation -> 
         for showing the flowchart for the manim illustration, will be called by the agent class.
-        - [] Figure out how to compress the image to save on cloud deployment
-        - [] find models that are capable of drawing graphs on huggingface
-        - [] very descriptive prompt for the generation irrespective of the generation model
+        - [ ] Figure out how to compress the image to save on cloud deployment
+        - [ ]  find models that are capable of drawing graphs on huggingface
+        - [ ] very descriptive prompt for the generation irrespective of the generation model
 
 3.5) AGENT LAYER -> 
-        -[x] complete the agentic layer 
-        -[x] should call the tools on its own based on the user promtp
-        -[x] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
+        - [x] complete the agentic layer 
+        - [x] should call the tools on its own based on the user promtp
+        - [x] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
                 without errors and somehow be smart enf to fix the error.
-        -[x] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
-
-        -[] add the helper functions that end up uploading to AWS and returns the string.
+        - [x] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
+        - [x] add the helper functions that end up uploading to AWS and returns the string.
+        - [] 
+ 
+3.99) ARCHITECTURAL ->
+        - [ ] THE MANIM, FLOWCHART ARE THE ONLY ONES THAT NEED AN AGENT, OTHERWISE MANUALLY CALL THE TEXT GEN ENDPOINT.
 
 4) server side->
-                        [] database connection with Neon
-                        [] AWS , Cloudinary or other service for the files and images.
-                        [] elaborate resposne validation for the same.
+                       - [x] database connection with Neon
+                       - [x] AWS , Cloudinary or other service for the files and images.
+                       - [x] elaborate resposne validation for the same.
 
 5) misc ->              
-                []  RAG understadning, fixing the RAG endpoint
-                []  FFMPEG compression and conversion to a diff file type for manim. maybe gif from mp4 (default)
+               - [ ]  RAG understadning, fixing the RAG endpoint
+               - [ ]  FFMPEG compression and conversion to a diff file type for manim. maybe gif from mp4 (default)
 
 
 

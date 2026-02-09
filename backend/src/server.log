@@ -1,0 +1,139 @@
+[02/09/26 12:24:39] WARNING  Unknown option passed to Flask-CORS:    core.py:378
+                             origin                                             
+ * Serving Flask app 'server'
+ * Debug mode: on
+[02/09/26 12:24:40] INFO     [31m[1mWARNING: This is a           _internal.py:97
+                             development server. Do not use it                  
+                             in a production deployment. Use a                  
+                             production WSGI server instead.[0m                 
+                              * Running on all addresses                        
+                             (0.0.0.0)                                          
+                              * Running on http://127.0.0.1:8080                
+                              * Running on                                      
+                             http://192.168.1.2:8080                            
+                    INFO     [33mPress CTRL+C to quit[0m         _internal.py:97
+                    INFO      * Restarting with watchdog         _internal.py:97
+                             (fsevents)                                         
+[02/09/26 12:24:41] WARNING  Unknown option passed to Flask-CORS:    core.py:378
+                             origin                                             
+[02/09/26 12:24:42] WARNING   * Debugger is active!              _internal.py:97
+                    INFO      * Debugger PIN: 983-923-594        _internal.py:97
+Traceback (most recent call last):
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_http.py", line 402, in hf_raise_for_status
+    response.raise_for_status()
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/requests/models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/src/server.py", line 133, in chat
+    agent_response = agent.run_agent(query=query)  # has data, and tool payload
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/src/AGENT.py", line 309, in run_agent
+    response = self.model.invoke(prompt)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 402, in invoke
+    self.generate_prompt(
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 1121, in generate_prompt
+    return self.generate(prompt_messages, stop=stop, callbacks=callbacks, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 931, in generate
+    self._generate_with_cache(
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 1233, in _generate_with_cache
+    result = self._generate(
+             ^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_huggingface/chat_models/huggingface.py", line 750, in _generate
+    answer = self.llm.client.chat_completion(messages=message_dicts, **params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/inference/_client.py", line 915, in chat_completion
+    data = self._inner_post(request_parameters, stream=stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/inference/_client.py", line 275, in _inner_post
+    hf_raise_for_status(response)
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_http.py", line 475, in hf_raise_for_status
+    raise _format(HfHubHTTPError, str(e), response) from e
+huggingface_hub.errors.HfHubHTTPError: 402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698984b9-1d7eda9c1ecbb8232e949cf4;39013a16-14ce-4c75-bd9f-7d1797b33b98)
+
+Credit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.
+==================================================
+EXCEPTION IN CHAT ENDPOINT:
+Exception type: HfHubHTTPError
+Exception message: '402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698984b9-1d7eda9c1ecbb8232e949cf4;39013a16-14ce-4c75-bd9f-7d1797b33b98)\n\nCredit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.'
+Exception args: ('402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698984b9-1d7eda9c1ecbb8232e949cf4;39013a16-14ce-4c75-bd9f-7d1797b33b98)\n\nCredit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.',)
+==================================================
+[02/09/26 12:24:49] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:24:49] "[35m[1mPOST /chat                       
+                             HTTP/1.1[0m" 500 -                                 
+[02/09/26 12:27:24] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:24] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+                    INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:24] "[33mGET /favicon.ico                    
+                             HTTP/1.1[0m" 404 -                                 
+[02/09/26 12:27:30] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:30] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+[02/09/26 12:27:32] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:32] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+                    INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:32] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+                    INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:32] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+[02/09/26 12:27:33] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:27:33] "[33mGET / HTTP/1.1[0m"                  
+                             404 -                                              
+Traceback (most recent call last):
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_http.py", line 402, in hf_raise_for_status
+    response.raise_for_status()
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/requests/models.py", line 1026, in raise_for_status
+    raise HTTPError(http_error_msg, response=self)
+requests.exceptions.HTTPError: 402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/src/server.py", line 133, in chat
+    agent_response = agent.run_agent(query=query)  # has data, and tool payload
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/src/AGENT.py", line 309, in run_agent
+    response = self.model.invoke(prompt)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 402, in invoke
+    self.generate_prompt(
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 1121, in generate_prompt
+    return self.generate(prompt_messages, stop=stop, callbacks=callbacks, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 931, in generate
+    self._generate_with_cache(
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_core/language_models/chat_models.py", line 1233, in _generate_with_cache
+    result = self._generate(
+             ^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/langchain_huggingface/chat_models/huggingface.py", line 750, in _generate
+    answer = self.llm.client.chat_completion(messages=message_dicts, **params)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/inference/_client.py", line 915, in chat_completion
+    data = self._inner_post(request_parameters, stream=stream)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/inference/_client.py", line 275, in _inner_post
+    hf_raise_for_status(response)
+  File "/Users/dilip/Documents/prog/glyph-learning/backend/.venv/lib/python3.11/site-packages/huggingface_hub/utils/_http.py", line 475, in hf_raise_for_status
+    raise _format(HfHubHTTPError, str(e), response) from e
+huggingface_hub.errors.HfHubHTTPError: 402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698986ba-5a3748ec2f31022352ece280;216589d6-a8f7-4d2a-a93a-d9dcab760dfe)
+
+Credit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.
+==================================================
+EXCEPTION IN CHAT ENDPOINT:
+Exception type: HfHubHTTPError
+Exception message: '402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698986ba-5a3748ec2f31022352ece280;216589d6-a8f7-4d2a-a93a-d9dcab760dfe)\n\nCredit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.'
+Exception args: ('402 Client Error: Payment Required for url: https://router.huggingface.co/featherless-ai/v1/chat/completions (Request ID: Root=1-698986ba-5a3748ec2f31022352ece280;216589d6-a8f7-4d2a-a93a-d9dcab760dfe)\n\nCredit balance is depleted: purchase pre-paid credits to continue using Inference Providers with your account. Alternatively, subscribe to PRO to get 20x more included usage.',)
+==================================================
+[02/09/26 12:33:23] INFO     127.0.0.1 - - [09/Feb/2026          _internal.py:97
+                             12:33:23] "[35m[1mPOST /chat                       
+                             HTTP/1.1[0m" 500 -                                 
+/Users/dilip/.local/share/uv/python/cpython-3.11.14-macos-aarch64-none/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

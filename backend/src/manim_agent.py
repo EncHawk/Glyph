@@ -7,22 +7,25 @@ import sys
 import boto3
 from pydantic import BaseModel, ValidationError, constr
 from dotenv import load_dotenv
+
 load_dotenv()
 
+
 class Manim:
-    def __init__ (self,response_format, prompt):
+    def __init__(self, response_format, prompt):
         self.response_format = response_format
         self.prompt = prompt
+
     # now this can be passes as a response format to the model, to ensure that it returns without any backticks or extra bullshit
-    
-    def inferModel(self,model)->str:
-        #genai.client
-        client = InferenceClient(api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN")) 
+
+    def inferModel(self, model) -> str:
+        # genai.client
+        client = InferenceClient(api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
         input = self.prompt
         print(input)
         print("manim logic")
 
-        prompt= f"""{input}
+        prompt = f"""{input}
             YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
             IF THE CODE INCLUDES AN ERROR MESSAGE OR ANY SUGGESTIONS THEN AVOID THAT ERROR IN THE OUTPUT CODE, AND INCLUDE THE SUGGESTION IN OUTPUT CODE,
                 MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE.
@@ -63,50 +66,50 @@ class Manim:
             -- IF YOU ARE USING THE random FUNCTION IMPORT THE RANDOM LIBRARY!
 
         """
-        messages=[
+        messages = [
             {
-                "role":"system",
-                "content":
-                """
+                "role": "system",
+                "content": """
                     You are a manim developer, you are tasked to strictly return only code for manim illustrations
                     in the form of the given json response format.
                     If the input prompt does include an error code, try to avoid the error in the output.
-                """
+                """,
             },
-            {
-                "role": "user",
-                "content": prompt
-            },
+            {"role": "user", "content": prompt},
         ]
         response = client.chat_completion(
             model="zai-org/GLM-4.7",
-            messages= messages,
+            messages=messages,
             max_tokens=3000,
             temperature=0.9,
-            response_format=self.response_format
+            response_format=self.response_format,
         )
         raw = response.choices[0].message.content
-        if not raw.startswith("{"):
-            raise RuntimeError("Model did not return JSON:\n" + raw)
+        if raw is None or not raw.startswith("{"):
+            error_msg = f"Model did not return valid JSON response. Raw response: {raw}"
+            raise RuntimeError(error_msg)
         try:
             parsed = json.loads(raw)
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, TypeError) as e:
+            if raw is None:
+                raise ValueError("Model returned None response") from e
             cleaned = raw.strip()
 
             for fence in ["```", "```python", "```py"]:
                 cleaned = cleaned.replace(fence, "")
 
-            # if cleaned.startswith('"') and cleaned.endswith('"'): # just incase its embedded in quotes, use when doomsday
-            #     cleaned = cleaned[1:-1]
-
-            parsed = json.loads(cleaned)
-
+            try:
+                parsed = json.loads(cleaned)
+            except json.JSONDecodeError:
+                raise ValueError(f"Failed to parse JSON response: {cleaned}")
 
         try:
             response_text = model(**parsed)
         except ValidationError as e:
-            print(e.message)
-            print(response_text)
+            error_details = e.errors()
+            print("Validation error:", error_details)
+            print("Parsed data:", parsed)
+            raise ValueError(f"Validation failed: {error_details}") from e
 
         print(response_text.className)
         return response_text
