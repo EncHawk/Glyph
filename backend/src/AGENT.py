@@ -4,7 +4,7 @@ import datetime
 import subprocess
 from manim_agent import Manim
 from flowchart import Flowchart
-import jsonify
+from flask import jsonify
 from rag import RagAgent
 import boto3
 import botocore
@@ -74,11 +74,11 @@ class Agent:
         assert os.path.join(self.MEDIA_DIR, "videos", "480p15", f"{className}.mp4")
         s3 = boto3.resource(
             "s3",
-            aws_access_key=os.getenv("aws_access_key_id"),
+            aws_access_key_id=os.getenv("aws_access_key_id"),
             aws_secret_access_key=os.getenv("aws_secret_access_key"),
             region_name=os.getenv("aws_region"),
         )
-        output_vid = os.path.abspath(self.GEN_DIR, f"{className}.py")
+        output_vid = os.path.abspath(os.path.join(self.GEN_DIR, f"{className}.py"))
         try:
             subprocess.run(["manim", "-pql", output_vid, className], check=True)
         except Exception as e:
@@ -86,7 +86,7 @@ class Agent:
             raise Exception("Manim render failed")
         s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
         try:
-            s3.Bucket(s3_bucket_name).upload_video(output_vid, s3_key)
+            s3.Bucket(s3_bucket_name).upload_file(output_vid, s3_key)
         except botocore.exceptions.ClientError as e:
             print("S3 upload failed:", e)
             raise Exception("S3 upload failed")
@@ -110,11 +110,13 @@ class Agent:
 
         s3 = boto3.resource(
             "s3",
-            aws_access_key=os.getenv("aws_access_key_id"),
+            aws_access_key_id=os.getenv("aws_access_key_id"),
             aws_secret_access_key=os.getenv("aws_secret_access_key"),
             region_name=os.getenv("aws_region"),
         )
-        output_img = os.path.abspath(self.FLOWCHART_MEDIA_DIR, f"{className}.svg")
+        output_img = os.path.abspath(
+            os.path.join(self.FLOWCHART_MEDIA_DIR, f"{className}.svg")
+        )
         try:
             subprocess.run([sys.executable, f"{className}.py"], check=True)
         except Exception as e:
@@ -123,7 +125,7 @@ class Agent:
 
         s3_key = f"flowchart/{className}_{datetime.datetime.now().isoformat()}.svg"
         try:
-            extra_args = {"Content-Type": "image/xml/+svg"}
+            extra_args = {"ContentType": "image/xml/+svg"}
             s3.Bucket(s3_bucket_name).upload_file(
                 output_img, s3_key, ExtraArgs=extra_args
             )
@@ -134,11 +136,10 @@ class Agent:
         s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
         return s3_url
 
-    def manim_tool(self, prompt):
+    def manim_tool(self, prompt, correction_context=None):
         """
-        Docstring for Manim
-
         :param prompt: the input prompt to generate the illustration code
+        :param correction_context: Optional dict with previous error and code for retry
         """
 
         class ModelResponse(BaseModel):
@@ -153,15 +154,40 @@ class Agent:
                 "strict": True,
             },
         }
+
         try:
-            instance = Manim(response_format=response_format, prompt=prompt)
+            # If we have correction context, modify the prompt
+            if correction_context:
+                enhanced_prompt = f"""
+                    {prompt}
+
+                    IMPORTANT: Previous attempt failed with this error:
+                    {correction_context["error"]}
+
+                    Previous code that failed:
+                    ```python
+                    {correction_context["code"]}
+                    ```
+
+                    Fix the error and generate corrected code. Common Manim fixes:
+                    - Don't use 'opacity' parameter in Dot() - use set_opacity() method instead
+                    - Use fill_opacity and stroke_opacity for VMobjects
+                    - Ensure all imports are correct
+                    - Check method signatures match Manim v0.19.2 API
+                """
+                instance = Manim(
+                    response_format=response_format, prompt=enhanced_prompt
+                )
+            else:
+                instance = Manim(response_format=response_format, prompt=prompt)
+
             response_text = instance.inferModel(model=ModelResponse)
 
             # Ensure the directory exists
             os.makedirs(self.GEN_DIR, exist_ok=True)
 
             # Write the generated code to file
-            file = os.path.abspath(f"generated-scripts/{response_text.className}.py")
+            file = os.path.join(self.GEN_DIR, f"{response_text.className}.py")
             with open(file, "w") as f:
                 f.write(response_text.code)
 
@@ -171,11 +197,29 @@ class Agent:
             )
             return {
                 "ok": True,
-                "msg": "File Ran successfully, return mp4 string only for manim",
+                "msg": "File Ran successfully",
                 "string": aws_string,
+                "code": response_text.code,  # ← Return code on success too
+                "className": response_text.className,
             }
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            # Try to return the code even on failure
+            error_code = None
+            class_name = None
+            try:
+                error_code = response_text.code if "response_text" in locals() else None
+                class_name = (
+                    response_text.className if "response_text" in locals() else None
+                )
+            except:
+                pass
+
+            return {
+                "ok": False,
+                "error": str(e),
+                "code": error_code,  # ← Return code that failed
+                "className": class_name,
+            }
 
     def contextual_text_tool(self, prompt):
         """
@@ -208,11 +252,10 @@ class Agent:
         response_code = instance.inferModel(input=prompt)
         return response_code
 
-    def flowchart_tool(self, prompt):
+    def flowchart_tool(self, prompt, correction_context=None):
         """
-        Docstring for flowchart
-
         :param prompt: the prompt to generate the code for graphviz flowchart
+        :param correction_context: Optional dict with previous error and code for retry
         """
 
         class ModelResponse(BaseModel):
@@ -227,21 +270,34 @@ class Agent:
                 "strict": True,
             },
         }
+
         try:
-            res = Flowchart(input=prompt)
+            # Apply correction if available
+            if correction_context:
+                enhanced_prompt = f"""
+                {prompt}
 
-            # Use predefined directory constants
+                Previous attempt failed with error:
+                {correction_context["error"]}
+
+                Previous code:
+                ```python
+                {correction_context["code"]}
+                ```
+
+                {correction_context.get("correction_advice", "Fix the error and regenerate.")}
+            """
+                res = Flowchart(input=enhanced_prompt)
+            else:
+                res = Flowchart(input=prompt)
+
             os.makedirs(self.GEN_FLOW, exist_ok=True)
-
-            # Write the generated code to file
             gen_file = os.path.join(self.GEN_FLOW, f"{res.className}.py")
+
             if len(res.code) > 10:
-                print("writing flowchart to file:", gen_file)
                 with open(gen_file, "w") as f:
                     f.write(res.code)
 
-            # Change to the generated-flowcharts directory and run the script
-            # This ensures the SVG is created in the correct location
             original_cwd = os.getcwd()
             try:
                 os.chdir(self.GEN_FLOW)
@@ -255,51 +311,115 @@ class Agent:
             finally:
                 os.chdir(original_cwd)
 
-            s3_string = self.flowchart_response(
-                f"{res.className}", "glyph-data-storage"
-            )
+            s3_string = self.flowchart_response(res.className, "glyph-data-storage")
             return {
                 "ok": True,
-                "result": "image successfully created. take this!",
+                "result": "image successfully created",
                 "string": s3_string,
+                "code": res.code,  # ← Return code
+                "className": res.className,
             }
         except Exception as e:
-            return {"ok": False, "error": str(e)}
+            error_code = None
+            class_name = None
+            try:
+                error_code = res.code if "res" in locals() else None
+                class_name = res.className if "res" in locals() else None
+            except:
+                pass
+
+            return {
+                "ok": False,
+                "error": str(e),
+                "code": error_code,  # ← Return failed code
+                "className": class_name,
+            }
 
     def run_with_retry(self, tool, prompt):
+        """
+        Retry logic with LLM-powered error correction
+        """
         last_error = None
-        context = prompt
+        last_code = None
+        correction_context = None
 
         for attempt in range(self.attempts):
-            result = tool(context)
+            print(f"\n Attempt {attempt + 1}/{self.attempts}")
 
+            # Call the tool with correction context if available
+            if tool == self.manim_tool:
+                result = tool(prompt, correction_context=correction_context)
+            elif tool == self.flowchart_tool:
+                result = tool(prompt, correction_context=correction_context)
+            else:
+                result = tool(prompt)
+
+            # Success!
             if result.get("ok"):
+                print(f" Success on attempt {attempt + 1}")
                 return result
 
-            last_error = result.get("error")
+            # Failed - prepare for retry
+            last_error = result.get("error", "Unknown error")
+            last_code = result.get("code", "")
 
-            context = f"""
-            Original request: {prompt}
+            print(f" Attempt {attempt + 1} failed: {last_error[:200]}")
 
-            Previous attempt {attempt + 1} failed with error:
-            {last_error}
+            # If this is the last attempt, give up
+            if attempt == self.attempts - 1:
+                break
 
-            Instructions to fix:
-            - Review the error message carefully
-            - Ensure the code is syntactically correct
-            - For Manim: ensure all imports are correct and the Scene class is properly defined
-            - For Flowchart: ensure Graphviz syntax is valid
-            - Generate corrected code
+            # Use LLM to analyze error and suggest corrections
+            if last_code:
+                correction_prompt = f"""
+                    You are a debugging expert. Analyze this error and provide specific fixes.
 
-            Generate the corrected code now:
-            """
+                    ERROR:
+                    {last_error}
+
+                    FAILED CODE:
+                    ```python
+                    {last_code}
+                    ```
+
+                    Common issues and fixes:
+                    - Manim Dot: Don't use opacity= in constructor. Use .set_opacity() method after creation
+                    - Manim colors: Use from manim import RED, BLUE, WHITE, etc.
+                    - Graphviz: Check node/edge syntax
+
+                    Provide SPECIFIC instructions to fix this error (not new code, just instructions):
+                """
+
+                try:
+                    correction_response = self.advanced_model.invoke(correction_prompt)
+                    correction_instructions = correction_response.content.strip()
+
+                    print(
+                        f" LLM Correction Advice:\n{correction_instructions[:300]}..."
+                    )
+
+                    # Build correction context for next attempt
+                    correction_context = {
+                        "error": last_error,
+                        "code": last_code,
+                        "correction_advice": correction_instructions,
+                    }
+                except Exception as llm_error:
+                    print(f" LLM correction failed: {llm_error}")
+                    # Fallback: just pass error and code
+                    correction_context = {
+                        "error": last_error,
+                        "code": last_code,
+                        "correction_advice": "Fix the error shown above",
+                    }
+            else:
+                print(" No code available to analyze")
 
         return {
             "ok": False,
             "error": f"Failed after {self.attempts} attempts",
-            "last_error": str(last_error)
-            if last_error is not None
-            else "Unknown error",
+            "last_error": last_error,
+            "last_code": last_code,
         }
 
     def run_agent(self, query):
