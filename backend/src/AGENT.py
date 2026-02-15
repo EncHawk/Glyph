@@ -32,7 +32,7 @@ class Agent:
         FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
         self.hf_llm = HuggingFaceEndpoint(
-            repo_id="HuggingFaceH4/zephyr-7b-beta",
+            repo_id="meta-llama/Llama-3.3-70B-Instruct",
             task="text-generation",
             max_new_tokens=512,
             temperature=0.7,

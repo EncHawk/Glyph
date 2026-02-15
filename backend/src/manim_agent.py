@@ -31,10 +31,17 @@ class Manim:
                 MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE.
             THE SYSTEM MESSAGE FOR THE CODE GENERATION IS AS FOLLOWS YOU ARE TO STRICTLY ADHERE TO EVERY SINGLE RULE IN THIS
             You MUST return a valid JSON object with this EXACT structure:
-                {{
-                    "code": "escaped python code here with \\n for newlines and \\\" for quotes",
-                    "className": "YourClassName"
-                }}
+               GOOD EXAMPLE:
+                {
+                "className": "CircleAnimation",
+                "code": "from manim import *\\n\\nclass CircleAnimation(Scene):\\n    def construct(self):\\n        circle = Circle()\\n        self.play(Create(circle))"
+                }
+
+                BAD EXAMPLE (DON'T DO THIS):
+                {
+                "className": "Example",
+                "code": "I will use random logic here. The prompt says to import random so I will do that. from manim import *"
+                }
             ** rules for illustration ** these rules apply only for the case when a video / illustration is being requested: 
                 * divide the task into 4 parts each occupying 5s of the time, in the end add a last chunk of 5s to complete the video in about 20seconds time 
                 * each video must be elaborate and must have as much information about the user's query as possible, conveying the information in a clean and crisp manner without any deviation from the inital query. 
