@@ -14,11 +14,7 @@ this is what's left :
                 |--> this must aslo include a mini explanation.
         - [] FFMPEG in order to reduce the size or create a new filtype before being uploaded
 
-3) graphviz/image generation -> 
-        for showing the flowchart for the manim illustration, will be called by the agent class.
-        - [ ] Figure out how to compress the image to save on cloud deployment
-        - [ ]  find models that are capable of drawing graphs on huggingface
-        - [ ] very descriptive prompt for the generation irrespective of the generation model
+3) graphviz/image generation -> on hold for now, focussing on building the agentic layer and better features like diffusion models integration instead.
 
 3.5) AGENT LAYER -> 
         - [x] complete the agentic layer 
@@ -31,6 +27,7 @@ this is what's left :
  
 3.99) ARCHITECTURAL ->
         - [ ] THE MANIM, FLOWCHART ARE THE ONLY ONES THAT NEED AN AGENT, OTHERWISE MANUALLY CALL THE TEXT GEN ENDPOINT.
+
 
 4) server side->
                        - [x] database connection with Neon

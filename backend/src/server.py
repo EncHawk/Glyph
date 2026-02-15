@@ -120,8 +120,8 @@ def login():
         ), 401
 
 
-@app.route("/chat", methods=["POST"])
-def chat():
+@app.route("/agent", methods=["POST"]) # meant exclusively for manim / future diffusion inclusion
+def agent():
     input = request.get_json()
     query = input.get("prompt")
     if not query:
@@ -129,7 +129,8 @@ def chat():
     # this prompt must go in the agent's class.
     user_id = session.get("user_id")
     try:
-        agent = Agent(session_id=user_id, attempts=5)
+        # TODO may be this can be taken as input to add as many as the user wants.
+        agent = Agent(session_id=user_id, attempts=3)
         agent_response = agent.run_agent(query=query)  # has data, and tool payload
         if not agent_response:
             return {"msg": "agent returned null", "data": agent_response}, 500

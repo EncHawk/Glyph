@@ -79,6 +79,9 @@ class Agent:
             region_name=os.getenv("aws_region"),
         )
         output_vid = os.path.abspath(os.path.join(self.GEN_DIR, f"{className}.py"))
+        generated_video = os.path.join(
+            self.MEDIA_DIR, "videos", className, "480p15", f"{className}.mp4"
+        )
         try:
             subprocess.run(["manim", "-pql", output_vid, className], check=True)
         except Exception as e:
@@ -86,7 +89,9 @@ class Agent:
             raise Exception("Manim render failed")
         s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
         try:
-            s3.Bucket(s3_bucket_name).upload_file(output_vid, s3_key)
+            s3.Bucket(s3_bucket_name).upload_file(
+                generated_video, s3_key
+            )  # ffs aws was getting a python file in the format of mp4 im retarded
         except botocore.exceptions.ClientError as e:
             print("S3 upload failed:", e)
             raise Exception("S3 upload failed")
@@ -343,6 +348,7 @@ class Agent:
         last_code = None
         correction_context = None
 
+        previous_errors = []
         for attempt in range(self.attempts):
             print(f"\n Attempt {attempt + 1}/{self.attempts}")
 
@@ -361,18 +367,27 @@ class Agent:
 
             # Failed - prepare for retry
             last_error = result.get("error", "Unknown error")
+            if any(code in str(last_error) for code in ['504', '402', '429', '503']):
+                print(f" API Error: {last_error}")
+                return {
+                    "ok": False,
+                    "error": "HuggingFace API error - check credits, quota, or try again later :( gotta pay up again",
+                    "attempt": attempt
+                }
             last_code = result.get("code", "")
 
             print(f" Attempt {attempt + 1} failed: {last_error[:200]}")
 
             # If this is the last attempt, give up
-            if attempt == self.attempts - 1:
+            if attempt == self.attempts - 1 or result.get('ok') == True:
                 break
 
             # Use LLM to analyze error and suggest corrections
             if last_code:
                 correction_prompt = f"""
-                    You are a debugging expert. Analyze this error and provide specific fixes.
+                    You are a debugging and quality assurance expert. Analyze this error and provide specific fixes.
+                    If the errors arent existing, analyse the code and take a look at the input prompt to ensure that the code is doing what is asked,
+                    if it isnt enhance it to be as effective and illustrative as possible. the idea is to make the video accurate to the prompt's demand.
 
                     ERROR:
                     {last_error}
@@ -391,6 +406,14 @@ class Agent:
                 """
 
                 try:
+                    if last_error in previous_errors: #check if its the same error as before, redo if yes.
+                        correction_context = {
+                            "error": last_error,
+                            "code": last_code,
+                            "correction_advice": "Previous fix didn't work. Try a completely different approach to fix this error, This must not occur again."
+                        }
+                        continue
+                    previous_errors.append(last_error)
                     correction_response = self.advanced_model.invoke(correction_prompt)
                     correction_instructions = correction_response.content.strip()
 
@@ -451,35 +474,38 @@ class Agent:
         response = self.model.invoke(prompt)
         choice = response.content.strip().lower()
 
-        tools_map = {
-            "manim_tool": ("manim", self.run_with_retry(self.manim_tool, query)),
-            "flowchart_tool": (
-                "flowchart",
-                self.run_with_retry(self.flowchart_tool, query),
-            ),
-        }
+        # tools_map = {
+        #     "manim_tool": ("manim", self.run_with_retry(self.manim_tool, query)),
+        #     "flowchart_tool": (
+        #         "flowchart",
+        #         self.run_with_retry(self.flowchart_tool, query),
+        #     ),
+        # }
 
         if "manim_tool" in choice:
+            result = self.run_with_retry(self.manim_tool, query)
             return jsonify(
                 {
                     "tool": "manim",
-                    "data": f"{self.run_with_retry(self.manim_tool, query)}",
+                    "data": result,
                 }
             ), 200
 
         elif "flowchart_tool" in choice:
+            result = self.run_with_retry(self.flowchart_tool, query)
             return jsonify(
                 {
                     "tool": "flowchart",
-                    "data": f"{self.run_with_retry(self.flowchart_tool, query)}",
+                    "data": result,
                 }
             ), 200
 
         else:
+            result = self.run_with_retry(self.flowchart_tool, query)
             return jsonify(
                 {
                     "tool": "flowchart",
-                    "data": f"{self.run_with_retry(self.flowchart_tool, query)}",
+                    "data": result,
                 }
             ), 200
 
