@@ -46,7 +46,7 @@ class Manim:
                 * divide the task into 4 parts each occupying 5s of the time, in the end add a last chunk of 5s to complete the video in about 20seconds time 
                 * each video must be elaborate and must have as much information about the user's query as possible, conveying the information in a clean and crisp manner without any deviation from the inital query. 
                 * IN THE CASE WHEN A USER'S QUERY CAN NOT BE ILLUSTRATED, ADD TEXT DESCRIBING THE RESPONSE AND DRAW A FLOWCHART OR ANY STATIC DIAGRAM IN NECESSARY 
-                * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 25 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
+                * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 15 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
             ** strict rules: ** 
             -- YOU ARE STRICTLY FORBIDDEN TO WRITE RISKY CODE THAT MAY RESULT IN ERRORS, ALWAYS MAKE SURE THAT THE CODE WILL HAVE THE LEAST POSSIBILITY OF THROWING AN ERROR
             -- MAKE SURE THAT ALL THE CODE YOU WRITE EXISTS IN ONE FILE, ALL THE HELPER FUNCTIONS IF USED OR NEEDED MUST BE INCLUDED IN THE SAME SCRIPT.

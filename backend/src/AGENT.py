@@ -32,7 +32,7 @@ class Agent:
         FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
         self.hf_llm = HuggingFaceEndpoint(
-            repo_id="meta-llama/Llama-3.3-70B-Instruct",
+            repo_id="zai-org/GLM-4.7",
             task="text-generation",
             max_new_tokens=512,
             temperature=0.7,
@@ -141,90 +141,7 @@ class Agent:
         s3_url = f"https://{s3_bucket_name}.s3.amazonaws.com/{s3_key}"
         return s3_url
 
-    def manim_tool(self, prompt, correction_context=None):
-        """
-        :param prompt: the input prompt to generate the illustration code
-        :param correction_context: Optional dict with previous error and code for retry
-        """
-
-        class ModelResponse(BaseModel):
-            code: constr(min_length=1, strip_whitespace=True)
-            className: str
-
-        response_format = {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "Model_Response",
-                "schema": ModelResponse.model_json_schema(),
-                "strict": True,
-            },
-        }
-
-        try:
-            # If we have correction context, modify the prompt
-            if correction_context:
-                enhanced_prompt = f"""
-                    {prompt}
-
-                    IMPORTANT: Previous attempt failed with this error:
-                    {correction_context["error"]}
-
-                    Previous code that failed:
-                    ```python
-                    {correction_context["code"]}
-                    ```
-
-                    Fix the error and generate corrected code. Common Manim fixes:
-                    - Don't use 'opacity' parameter in Dot() - use set_opacity() method instead
-                    - Use fill_opacity and stroke_opacity for VMobjects
-                    - Ensure all imports are correct
-                    - Check method signatures match Manim v0.19.2 API
-                """
-                instance = Manim(
-                    response_format=response_format, prompt=enhanced_prompt
-                )
-            else:
-                instance = Manim(response_format=response_format, prompt=prompt)
-
-            response_text = instance.inferModel(model=ModelResponse)
-
-            # Ensure the directory exists
-            os.makedirs(self.GEN_DIR, exist_ok=True)
-
-            # Write the generated code to file
-            file = os.path.join(self.GEN_DIR, f"{response_text.className}.py")
-            with open(file, "w") as f:
-                f.write(response_text.code)
-
-            subprocess.run(["manim", "-pql", file, response_text.className], check=True)
-            aws_string = self.manim_response(
-                response_text.className, "glyph-data-storage"
-            )
-            return {
-                "ok": True,
-                "msg": "File Ran successfully",
-                "string": aws_string,
-                "code": response_text.code,  # ← Return code on success too
-                "className": response_text.className,
-            }
-        except Exception as e:
-            # Try to return the code even on failure
-            error_code = None
-            class_name = None
-            try:
-                error_code = response_text.code if "response_text" in locals() else None
-                class_name = (
-                    response_text.className if "response_text" in locals() else None
-                )
-            except:
-                pass
-
-            return {
-                "ok": False,
-                "error": str(e),
-                "code": error_code,  # ← Return code that failed
-                "className": class_name,
-            }
+    
 
     def contextual_text_tool(self, prompt):
         """
@@ -375,6 +292,7 @@ class Agent:
                     "attempt": attempt
                 }
             last_code = result.get("code", "")
+            print(last_code)
 
             print(f" Attempt {attempt + 1} failed: {last_error[:200]}")
 
@@ -483,7 +401,7 @@ class Agent:
         # }
 
         if "manim_tool" in choice:
-            result = self.run_with_retry(self.manim_tool, query)
+            result = self.manim_tool(query)
             return jsonify(
                 {
                     "tool": "manim",

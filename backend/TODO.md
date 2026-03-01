@@ -1,44 +1,22 @@
 this is what's left : 
 
 1) RAG -> 
-                        - [x] generation is left based on the input chunks
-                        - [x] PDF package that also allows OCR for image based pdfs
-                        - [x] Add logic to ensure this works out for texts too.
+        - [x] generation is left based on the input chunks
+        - [x] PDF package that also allows OCR for image based pdfs
+        - [x] Add logic to ensure this works out for texts too.
+        - Include Milvus or any other vector db
 
 
 2) Manim pipeline ->
-        - [x] FIx the prompt to be more elaborate for ncihe cases that dont need a video, the model needs to come up with smtn that's makeshift
-        - [x] running the created code, using subprocess
-        - [x] Add logic to make sure the video's length does not cross 25seconds.
-                |--> Use the input/4 method, saving the last frames for summary and each lasts for 5s.
-                |--> this must aslo include a mini explanation.
         - [] FFMPEG in order to reduce the size or create a new filtype before being uploaded
+        - ehtos is to create a loop that enhances the ouput by splitting it into multiple scenes rather than crushing it all into one mp4.
 
 3) graphviz/image generation -> on hold for now, focussing on building the agentic layer and better features like diffusion models integration instead.
 
 3.5) AGENT LAYER -> 
-        - [x] complete the agentic layer 
-        - [x] should call the tools on its own based on the user promtp
-        - [x] manim: for manim, shd somehow run the subprocess command to ensure that it runs perfectly, 
-                without errors and somehow be smart enf to fix the error.
-        - [x] text generation /RAG : this is fully text so the agent to cross verify that prompt vs response deviation is as low as possible.
-        - [x] add the helper functions that end up uploading to AWS and returns the string.
-        - [] 
- 
-3.99) ARCHITECTURAL ->
-        - [ ] THE MANIM, FLOWCHART ARE THE ONLY ONES THAT NEED AN AGENT, OTHERWISE MANUALLY CALL THE TEXT GEN ENDPOINT.
+        - Add langgraph tools, for all the necessary tools. 
 
-
-4) server side->
-                       - [x] database connection with Neon
-                       - [x] AWS , Cloudinary or other service for the files and images.
-                       - [x] elaborate resposne validation for the same.
-
-5) misc ->              
-               - [ ]  RAG understadning, fixing the RAG endpoint
-               - [ ]  FFMPEG compression and conversion to a diff file type for manim. maybe gif from mp4 (default)
-
-
+5) Flowchart: gonna exist as a standalone ednpoint to create and return aws string for a given prompt. the class will get called from flask.
 
 ## frontend / deployment
 
