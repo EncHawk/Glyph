@@ -1,11 +1,8 @@
-from huggingface_hub import InferenceClient
-from google import genai
-import subprocess
 import json
 import os
-import sys
-import boto3
-from pydantic import BaseModel, ValidationError, constr
+
+from huggingface_hub import InferenceClient
+from pydantic import ValidationError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -19,13 +16,14 @@ class Manim:
     # now this can be passes as a response format to the model, to ensure that it returns without any backticks or extra bullshit
 
     def inferModel(self, model) -> str:
-        # genai.client
         client = InferenceClient(api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
-        input = self.prompt
-        print(input)
+        user_input = self.prompt
+        print(user_input)
         print("manim logic")
 
-        prompt = f"""{input}
+        prompt = (
+            user_input
+            + """
             YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
             IF THE CODE INCLUDES AN ERROR MESSAGE OR ANY SUGGESTIONS THEN AVOID THAT ERROR IN THE OUTPUT CODE, AND INCLUDE THE SUGGESTION IN OUTPUT CODE,
                 MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE.
@@ -43,7 +41,6 @@ class Manim:
                 "code": "I will use random logic here. The prompt says to import random so I will do that. from manim import *"
                 }
             ** rules for illustration ** these rules apply only for the case when a video / illustration is being requested: 
-                * divide the task into 4 parts each occupying 5s of the time, in the end add a last chunk of 5s to complete the video in about 20seconds time 
                 * each video must be elaborate and must have as much information about the user's query as possible, conveying the information in a clean and crisp manner without any deviation from the inital query. 
                 * IN THE CASE WHEN A USER'S QUERY CAN NOT BE ILLUSTRATED, ADD TEXT DESCRIBING THE RESPONSE AND DRAW A FLOWCHART OR ANY STATIC DIAGRAM IN NECESSARY 
                 * BY ALL MEANS TRY TO GENERATE A VIDEO IN UNDER 15 SECONDS, ANYTHING BEYOND THAT WILL RESULT IN A -50 POINT LOSS IN YOUR REWARDS.
@@ -73,6 +70,7 @@ class Manim:
             -- IF YOU ARE USING THE random FUNCTION IMPORT THE RANDOM LIBRARY!
 
         """
+        )
         messages = [
             {
                 "role": "system",
@@ -92,15 +90,16 @@ class Manim:
             response_format=self.response_format,
         )
         raw = response.choices[0].message.content
-        if raw is None or not raw.startswith("{"):
+        cleaned_raw = raw.strip() if raw is not None else None
+        if cleaned_raw is None or not cleaned_raw.startswith("{"):
             error_msg = f"Model did not return valid JSON response. Raw response: {raw}"
             raise RuntimeError(error_msg)
         try:
-            parsed = json.loads(raw)
+            parsed = json.loads(cleaned_raw)
         except (json.JSONDecodeError, TypeError) as e:
             if raw is None:
                 raise ValueError("Model returned None response") from e
-            cleaned = raw.strip()
+            cleaned = cleaned_raw
 
             for fence in ["```", "```python", "```py"]:
                 cleaned = cleaned.replace(fence, "")

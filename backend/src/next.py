@@ -1,3 +1,13 @@
+import os
+import shutil
+
+from langchain.agents import create_agent
+from langchain_chroma import Chroma
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
+
 class RagAgent:
     def __init__(self, embeddings, model):
         self.embeddings = embeddings
@@ -17,7 +27,7 @@ class RagAgent:
     def store(self, source, session_id: str, is_text=False):
         vector_store = self.get_user_vector_store(session_id)
 
-        if os.listdir(source) == []:
+        if is_text:
             documents = [Document(
                 page_content=source,
                 metadata={'source': 'raw_text', 'session_id': session_id}
@@ -52,16 +62,17 @@ class RagAgent:
         prompt = "Use the retrieval tool to answer queries for this session."
 
         agent = create_agent(self.model, tools, system_prompt=prompt)
-
+        final_event = None
         for event in agent.stream(
             {"messages": [{"role": "user", "content": query}]},
             stream_mode="values"
         ):
+            final_event = event
             event["messages"][-1].pretty_print()
+        return final_event
 
     def cleanup_session(self, session_id: str):
         if session_id in self.active_sessions:
-            import shutil
             path = f'./glyphDB/session_{session_id}'
             if os.path.exists(path):
                 shutil.rmtree(path)

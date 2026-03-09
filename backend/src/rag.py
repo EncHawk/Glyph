@@ -1,20 +1,10 @@
 import os
-# from langchain_google_genai import ChatGoogleGenerativeAI
-# from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_chroma import Chroma
 from langchain_community.document_loaders import UnstructuredPDFLoader
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.tools import tool
-from langchain.agents import create_agent
 from supabase import create_client, Client
 from langchain_core.documents import Document
-from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
-from pdf2image import convert_from_path
-import pytesseract
-import uuid
-from typing import Optional
+from langchain.messages import HumanMessage, SystemMessage
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -88,15 +78,27 @@ class RagAgent:
         return serialized, docs
 
     def infer(self, query: str, session_id: str):
-        tools = [lambda q: self.retrieve_similarity(q, session_id)]
+        serialized_context, _ = self.retrieve_similarity(query, session_id)
+        if not serialized_context:
+            serialized_context = "No relevant context was found in the vector store for this session."
 
-        prompt = "Use the retrieval tool to answer queries from the user, do not go beyond the bounds of what is asked of you."
-
-        agent = create_agent(self.model, tools, system_prompt=prompt)
-            
-        response = agent.invoke({"messages": [{"role": "user", "content": query}]})
-
-        return response["structured_output"]
+        response = self.model.invoke(
+            [
+                SystemMessage(
+                    content=(
+                        "You are a retrieval QA assistant. Use the retrieved context to answer. "
+                        "If context is missing, say that clearly and answer conservatively."
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        f"Question:\n{query}\n\n"
+                        f"Retrieved Context:\n{serialized_context}"
+                    )
+                ),
+            ]
+        )
+        return response.content if hasattr(response, "content") else str(response)
         
 
 # run this while testing.

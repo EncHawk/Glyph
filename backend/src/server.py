@@ -1,20 +1,15 @@
 import os
-import subprocess
-import sys
-import jwt
-import boto3
-import botocore
 import uuid
-import datetime
-from flask import Flask, request, render_template, jsonify, session
+from flask import Flask, request, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import UUID
 from marshmallow import Schema, fields
 from flask_cors import CORS
-import manim_agent as Manim
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEmbeddings, HuggingFaceEndpoint
-from pydantic import BaseModel, constr
-import manim
+from langchain_huggingface import (
+    ChatHuggingFace,
+    HuggingFaceEmbeddings,
+    HuggingFaceEndpoint,
+)
 from rag import RagAgent
 from agent_placeholder import Agent
 
@@ -58,8 +53,37 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in allowed_files
 
 
+def coerce_optional_bool(value):
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "video", "manim"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "text"}:
+        return False
+    return None
+
+
+def build_rag_agent(session_id: str) -> RagAgent:
+    llm = HuggingFaceEndpoint(
+        repo_id="Qwen/Qwen3.5-7B-Instruct",
+        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+        temperature=0.7,
+    )
+    model = ChatHuggingFace(llm=llm)
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-mpnet-base-v2"
+    )
+    return RagAgent(embeddings=embeddings, model=model, session_id=session_id)
+
+
 @app.route("/status")
-def home():
+def status():
     return "<p>200,SERVER UP AND RUNNING.</p>"
 
 
@@ -70,9 +94,11 @@ def login():
     if not data:
         return jsonify({"msg": "no input data, try again"}), 401
 
-    if "username" and "email" in data:
+    if "username" in data and "email" in data:
         username = data["username"]
         email = data["email"]
+    else:
+        return jsonify({"success": False, "msg": "username and email are required"}), 400
 
     try:  # tries to validate input, if failed returns 401
         user = User(username=username, email=email)
@@ -121,114 +147,41 @@ def login():
         ), 401
 
 
-@app.route(
-    "/agent", methods=["POST"]
-)  # meant exclusively for manim / future diffusion inclusion
-def agent():
-    input = request.get_json()
-    query = input.get("prompt")
-    if not query:
-        return jsonify({"msg": "No input found, try sending smtn next time"}), 403
-    # this prompt must go in the agent's class.
-    user_id = session.get("user_id")
-    try:
-        # TODO may be this can be taken as input to add as many as the user wants.
-        agent = Agent(session_id=user_id, attempts=3)
-        agent_response = agent.run_agent(query=query)  # has data, and tool payload
-        if not agent_response:
-            return {"msg": "agent returned null", "data": agent_response}, 500
-
-        # instead of making the aws upload from teh agent class, we do it in separate functions instead.
-        # aws_string = agent_response.string
-        if isinstance(agent_response, tuple):
-            agent_response = agent_response[0]
-        print(agent_response)
-        return agent_response, 200
-    except Exception as e:
-        print("=" * 50)
-        print("EXCEPTION IN CHAT ENDPOINT:")
-        print("Exception type:", type(e).__name__)
-        print("Exception message:", repr(str(e)))
-        print("Exception args:", e.args)
-        import traceback
-
-        traceback.print_exc()
-        print("=" * 50)
-        error = str(e)
-        if not error:
-            error = f"{type(e).__name__} (no message)"
-        return jsonify(
-            {"msg": "something went wrong, we're working on it!", "cause": error}
-        ), 500
-
 
 @app.route("/manim", methods=["POST", "GET"])
-def manimResponse():
-    class ModelResponse(BaseModel):
-        code: constr(min_length=1, strip_whitespace=True)
-        className: str
+def manim_response():
+    payload = request.args.to_dict() if request.method == "GET" else (request.get_json(silent=True) or {})
+    query = payload.get("query") or payload.get("prompt") or payload.get("message")
+    if not query:
+        return jsonify({"ok": False, "error": "Missing query/prompt/message"}), 400
 
-    response_format = {
-        "type": "json_schema",
-        "json_schema": {
-            "name": "Model_Response",
-            "schema": ModelResponse.model_json_schema(),
-            "strict": True,
-        },
-    }
-    try:
-        # data = request.get_json()
-        # input = data.get('prompt')
-        # print(input)
-        # print("api gateway")
-        # manimInstance = Manim(response_format=response_format, prompt = input)
-        # res = manimInstance.inferModel(model=ModelResponse)
-        # base_dir = os.path.dirname(os.path.abspath(__file__))
-        # gen_dir = os.path.join(base_dir, "generated-scripts")
-        # os.makedirs(gen_dir, exist_ok=True)
-        # gen = os.path.join(gen_dir, f"{res.className}.py")
+    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    task_id = payload.get("task_id") or payload.get("task_uuid")
 
-        # if len(res.code) > 10:
-        #     print('writing to a file')
-        #     with open (gen, 'w') as f:
-        #         f.write(res.code)
-
-        # file = os.path.abspath(f"generated-scripts/{res.className}.py")
-        # WE ARE GONNA USE THE AGENT HERE INSTEAD OF AN ACTUAL CALL, WE USE THE AGENT TO DO THE WORK AND RETURN AN AWS STRING
-
-        try:
-            subprocess.run(["manim", "-pql", file, res.className], check=True)
-            return {
-                "success": "true",
-                "msg": "looking good",
-                "data": f"{request.remote_addr}",
-                "file": f"{res.className}.py",
-            }, 200
-
-        except Exception as e:
-            return {
-                "success": "false",
-                "msg": "not looking good, couldnt run command",
-                "data": f"{request.remote_addr}",
-            }, 503
-
-        # os.system(f"manim -pql {file} {res.className}")
-    except Exception as e:
-        print(e)
-        return {
-            "success": "false",
-            "msg": f"something went wrong while generating, try again.",
-            "data": f"{request.remote_addr}",
-        }, 503
+    agent = Agent(session_id=session_id, create_video=True, task_id=task_id)
+    result = agent.run_agent(query)
+    status_code = 200 if result.get("ok") else 500
+    return (
+        jsonify(
+            {
+                "ok": bool(result.get("ok")),
+                "session_id": session_id,
+                "task_id": result.get("task_id", agent.task_id),
+                "route": result.get("route", "manim_only"),
+                "create_video": True,
+                "response": result.get("string"),
+                "error": result.get("error"),
+                "warnings": result.get("warnings", []),
+            }
+        ),
+        status_code,
+    )
 
 
 # replace all this with a chat endpoint that calls
 allowed_files = ["pdf", "xlsx", "docx"]
-
-
-@app.route(
-    "/upload", methods=["POST"]
-)  # post req to receive the files (1) for rag with the prompt, and send the response back.
+# post req to receive the files (1) for rag with the prompt, and send the response back.
+@app.route("/upload", methods=["POST"])
 def rag():
     """
     Docstring for rag
@@ -249,36 +202,118 @@ def rag():
         # the file path to storethe pdf locally.
         filepath = os.path.join(upload_folder, filename)
 
+        os.makedirs(upload_folder, exist_ok=True)
         file.save(filepath)
-        rag = RagAgent()
 
         print("file saved at:", filepath)
 
-        rag.store(filepath)
-        rag.infer()
+        session_id = request.form.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+        rag_agent = build_rag_agent(session_id=session_id)
+        stored_doc_ids = rag_agent.store(filepath, session_id=session_id)
 
-        return "upload successful", 200
-    else:
-        return "GET the fuck out, invalid request method.", 403
+        return (
+            jsonify(
+                {
+                    "ok": True,
+                    "msg": "upload successful",
+                    "session_id": session_id,
+                    "filename": filename,
+                    "stored_count": len(stored_doc_ids) if stored_doc_ids else 0,
+                }
+            ),
+            200,
+        )
 
 
-@app.route("/response", methods=["GET"]) #
-def rag_response():
-    """
-    returns the response that is generated from RAG class
-    todo : add special methods in rag class that generates the response,
-    then return that response form this endpoint
-    """
-    llm = HuggingFaceEndpoint(  # add your huggingface token, this shit free and good heck yeah!
-        repo_id="Qwen/Qwen3.5-7B-Instruct",
-        temperature=0.7,
+@app.route("/agent", methods=["POST"])
+def agent_video_only():
+    payload = request.get_json(silent=True) or {}
+    query = payload.get("query") or payload.get("prompt") or payload.get("message")
+    if not query:
+        return jsonify({"ok": False, "error": "Missing query/prompt/message"}), 400
+
+    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    task_id = payload.get("task_id") or payload.get("task_uuid")
+
+    agent = Agent(session_id=session_id, create_video=True, task_id=task_id)
+    result = agent.run_agent(query)
+    status_code = 200 if result.get("ok") else 500
+
+    return (
+        jsonify(
+            {
+                "ok": bool(result.get("ok")),
+                "session_id": session_id,
+                "task_id": result.get("task_id", agent.task_id),
+                "route": result.get("route", "manim_only"),
+                "create_video": True,
+                "response": result.get("string"),
+                "error": result.get("error"),
+                "warnings": result.get("warnings", []),
+            }
+        ),
+        status_code,
     )
-    model = ChatHuggingFace(llm=llm)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2"
+
+
+@app.route(
+    "/response", methods=["POST", "GET"]
+)  # unified endpoint for text + video generation
+def response():
+    payload = request.args.to_dict() if request.method == "GET" else (request.get_json(silent=True) or {})
+
+    query = payload.get("query") or payload.get("prompt") or payload.get("message")
+    if not query:
+        return (
+            jsonify(
+                {
+                    "ok": False,
+                    "error": "Missing query. Provide one of: query, prompt, message",
+                }
+            ),
+            400,
+        )
+
+    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    requested_mode = payload.get("mode")
+    create_video = coerce_optional_bool(payload.get("create_video"))
+    if create_video is None and requested_mode:
+        mode = str(requested_mode).strip().lower()
+        if mode in {"video", "manim"}:
+            create_video = True
+        elif mode == "text":
+            create_video = False
+
+    task_id = payload.get("task_id") or payload.get("task_uuid")
+
+    agent = Agent(
+        session_id=session_id,
+        create_video=create_video,
+        task_id=task_id,
     )
-    rag = RagAgent(embeddings=embeddings, model=model)
-    rag.store()
+    result = agent.run_agent(query)
+
+    status_code = 200 if result.get("ok") else 500
+    resolved_route = result.get("route")
+    if not resolved_route:
+        if create_video is True:
+            resolved_route = "manim_only"
+        elif create_video is False:
+            resolved_route = "text"
+        else:
+            resolved_route = "auto"
+
+    response_payload = {
+        "ok": bool(result.get("ok")),
+        "session_id": session_id,
+        "task_id": result.get("task_id", agent.task_id),
+        "route": resolved_route,
+        "create_video": create_video,
+        "response": result.get("string"),
+        "error": result.get("error"),
+        "warnings": result.get("warnings", []),
+    }
+    return jsonify(response_payload), status_code
 
 
 if __name__ == "__main__":

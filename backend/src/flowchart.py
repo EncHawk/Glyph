@@ -102,7 +102,7 @@ class Flowchart():
             },
             {
                 "role": "user",
-                "content": input
+                "content": self.input
             },
         ]
         response = client.chat_completion(
@@ -127,8 +127,7 @@ class Flowchart():
         try:
             response_text = flowchart_class(**parsed)
         except ValidationError as e:
-            print(e.message)
-            print(response_text)
+            raise ValueError(f"Flowchart response validation failed: {e}") from e
 
         print(response_text.className)
         return response_text
