@@ -28,8 +28,7 @@ this is what's left :
 
 IDEATION: 
 
-    - Moving from Learners first to, feature rich platform enabling the following : 
-
+    - Allow users to choose the model within the ones we provide, and sarvam does the translation in the bg
 letting the users provide api keys, 
 
 context forwarding -> users choose a specific message and chain that to the model's input allowing the model to work on a specific piece of text 

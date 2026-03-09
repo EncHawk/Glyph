@@ -12,10 +12,11 @@ from sqlalchemy.dialects.postgresql import UUID
 from marshmallow import Schema, fields
 from flask_cors import CORS
 import manim_agent as Manim
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEmbeddings, HuggingFaceEndpoint
 from pydantic import BaseModel, constr
 import manim
 from rag import RagAgent
-from AGENT import Agent
+from agent_placeholder import Agent
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -120,7 +121,9 @@ def login():
         ), 401
 
 
-@app.route("/agent", methods=["POST"]) # meant exclusively for manim / future diffusion inclusion
+@app.route(
+    "/agent", methods=["POST"]
+)  # meant exclusively for manim / future diffusion inclusion
 def agent():
     input = request.get_json()
     query = input.get("prompt")
@@ -259,7 +262,7 @@ def rag():
         return "GET the fuck out, invalid request method.", 403
 
 
-@app.route("/response", methods=["GET"])
+@app.route("/response", methods=["GET"]) #
 def rag_response():
     """
     returns the response that is generated from RAG class
@@ -267,7 +270,7 @@ def rag_response():
     then return that response form this endpoint
     """
     llm = HuggingFaceEndpoint(  # add your huggingface token, this shit free and good heck yeah!
-        repo_id="Qwen/Qwen2.5-7B-Instruct",
+        repo_id="Qwen/Qwen3.5-7B-Instruct",
         temperature=0.7,
     )
     model = ChatHuggingFace(llm=llm)

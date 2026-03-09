@@ -1,4 +1,8 @@
-from langchain_huggingface import HuggingFaceEndpoint, ChatHuggingFace, HuggingFaceEmbeddings
+from langchain_huggingface import (
+    HuggingFaceEndpoint,
+    ChatHuggingFace,
+    HuggingFaceEmbeddings,
+)
 from langchain.tools import tool
 from pydantic import constr, BaseModel
 import os
@@ -6,7 +10,9 @@ import subprocess
 import sys
 import datetime
 import boto3
-from langchain.messages import SystemMessage, AnyMessage, HumanMessage, ToolMessage
+from langchain.messages import(
+ SystemMessage, AnyMessage, HumanMessage, ToolMessage
+)    
 import botocore
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain.messages import AnyMessage
@@ -18,14 +24,19 @@ from rag import RagAgent
 import operator
 
 
-
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
+GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
+MEDIA_DIR = os.path.join(ROOT_DIR, "media")
+FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
 
 llm = HuggingFaceEndpoint(
-    repo_id="mistralai/Mistral-7B-Instruct-v0.2",
-    huggingfacehub_api_token=os.getenv('HUGGINGFACEHUB_API_TOKEN')
+    repo_id="Qwen/Qwen2.5-7B-Instruct",
+    huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
 )
 model = ChatHuggingFace(llm=llm)
+
 
 def manim_response(self, className: str, s3_bucket_name: str):
     os.makedirs(self.GEN_DIR, exist_ok=True)
@@ -98,9 +109,7 @@ def manim_tool(self, prompt, correction_context=None):
                 - Ensure all imports are correct
                 - Check method signatures match Manim v0.19.2 API
             """
-            instance = Manim(
-                response_format=response_format, prompt=enhanced_prompt
-            )
+            instance = Manim(response_format=response_format, prompt=enhanced_prompt)
         else:
             instance = Manim(response_format=response_format, prompt=prompt)
 
@@ -115,9 +124,7 @@ def manim_tool(self, prompt, correction_context=None):
             f.write(response_text.code)
 
         subprocess.run(["manim", "-pql", file, response_text.className], check=True)
-        aws_string = self.manim_response(
-            response_text.className, "glyph-data-storage"
-        )
+        aws_string = self.manim_response(response_text.className, "glyph-data-storage")
         return {
             "ok": True,
             "msg": "File Ran successfully",
@@ -143,7 +150,8 @@ def manim_tool(self, prompt, correction_context=None):
             "code": error_code,  # ← Return code that failed
             "className": class_name,
         }
-    
+
+
 @tool
 def contextual_text_tool(prompt):
     """
@@ -176,26 +184,28 @@ def contextual_text_tool(prompt):
     response_code = instance.inferModel(input=prompt)
     return response_code
 
+
 class Scene(TypedDict):
     id: str
-    type: str          # "manim" | "diffusion"
+    type: str  # "manim" | "diffusion"
     class_name: str
     prompt: str
     s3_url: Optional[str]
 
+
 class AgentState(TypedDict):
-    messages:        Annotated[list[AnyMessage], operator.add]
-    llm_calls:       int
-    scene_plan:      List[Scene]          # filled by planner
-    current_index:   int                  # which scene we're rendering
-    completed_urls:  Annotated[list[str], operator.add]  # s3 urls in order
+    messages: Annotated[list[AnyMessage], operator.add]
+    llm_calls: int
+    scene_plan: List[Scene]  # filled by planner
+    current_index: int  # which scene we're rendering
+    completed_urls: Annotated[list[str], operator.add]  # s3 urls in order
     final_video_url: Optional[str]
-    route:           str                  # "manim_only" | "manim_diffusion" | "text"
+    route: str  # "manim_only" | "manim_diffusion" | "text"
+
 
 tools = [manim_tool]
 tools_by_name = {t.name: t for t in tools}
 model_with_tools = ChatHuggingFace(llm=llm).bind_tools(tools=tools)
-
 
 
 def classifier_node(state: AgentState) -> AgentState:
@@ -218,21 +228,24 @@ def planning_node(state: AgentState) -> AgentState:
     """Plans the scene list as structured JSON based on user prompt."""
     user_msg = state["messages"][-1].content
     prompt = f"""You are a video scene planner for an educational explainer video.
-Given the topic below, output ONLY a valid JSON array of scenes.
+    Given the topic below, output ONLY a valid JSON array of scenes.
 
-Rules:
-- Each scene has: id (scene_01, scene_02...), type ("manim"), class_name (PascalCase), prompt (detailed instruction for that scene)
-- Start with an IntroductionScene, end with a WrapUpScene
-- 3-6 scenes total
-- No markdown, no explanation, raw JSON only
+    Rules:
+    - Each scene has: id (scene_01, scene_02...), type ("manim"), class_name (PascalCase), prompt (detailed instruction for that scene)
+    - Start with an IntroductionScene, end with a WrapUpScene
+    - 3-6 scenes total
+    - No markdown, no explanation, raw JSON only
 
-Topic: {user_msg}
+    Topic: {user_msg}
 
-Example output:
-[
-  {{"id":"scene_01","type":"manim","class_name":"IntroductionScene","prompt":"Animate the title and a brief overview"}},
-  {{"id":"scene_02","type":"manim","class_name":"CoreConceptScene","prompt":"Show the core concept with step-by-step animation"}}
-]"""
+    Example output:
+    [
+    {{"id":"scene_01","type":"manim","class_name":"IntroductionScene","prompt":"Animate the title and a brief overview"}},
+    {{"id":"scene_02","type":"manim","class_name":"CoreConceptScene","prompt":"Show the core concept with step-by-step animation"}}
+    ... {"explain other sub topics as scenes here"}
+    {{"id":"scene_02","type":"manim","class_name":"FinalConclusionScene","prompt":"Summarize all the topics mentioned, and the user's initial query to complete the video."}}
+    and so on to enhance the end output, do this for atleast 5 times
+    ]"""
 
     response = model.invoke([SystemMessage(content=prompt)]).content.strip()
 
@@ -257,12 +270,11 @@ def scene_executor_node(state: AgentState) -> AgentState:
     idx = state["current_index"]
     scene = state["scene_plan"][idx]
 
-    result = manim_tool.invoke({
-        "prompt": scene["prompt"],
-        "correction_context": None
-    })
+    result = manim_tool.invoke({"prompt": scene["prompt"], "correction_context": None})
 
-    s3_url = result.get("string") if result.get("ok") else f"ERROR:{result.get('error')}"
+    s3_url = (
+        result.get("string") if result.get("ok") else f"ERROR:{result.get('error')}"
+    )
 
     # update plan with s3_url
     updated_plan = list(state["scene_plan"])
@@ -302,8 +314,19 @@ def ffmpeg_node(state: AgentState) -> AgentState:
 
     output_path = f"/tmp/final_{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.mp4"
     subprocess.run(
-        ["ffmpeg", "-f", "concat", "-safe", "0", "-i", concat_path, "-c", "copy", output_path],
-        check=True
+        [
+            "ffmpeg",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+            "-i",
+            concat_path,
+            "-c",
+            "copy",
+            output_path,
+        ],
+        check=True,
     )
 
     # upload final
@@ -313,7 +336,7 @@ def ffmpeg_node(state: AgentState) -> AgentState:
 
     return {
         "final_video_url": final_url,
-        "messages": [HumanMessage(content=f"Final video ready: {final_url}")]
+        "messages": [HumanMessage(content=f"Final video ready: {final_url}")],
     }
 
 
@@ -325,8 +348,10 @@ def text_node(state: AgentState) -> AgentState:
 
 # ── EDGES / CONDITIONS ────────────────────────────────────────────────────────
 
+
 def route_after_classify(state: AgentState) -> str:
-    return state["route"]   # → "manim_only" | "manim_diffusion" | "text"
+    return state["route"]  # → "manim_only" | "manim_diffusion" | "text"
+
 
 def route_after_scene(state: AgentState) -> str:
     """Loop back if more scenes remain, else go to ffmpeg."""
@@ -334,30 +359,65 @@ def route_after_scene(state: AgentState) -> str:
         return "scene_executor_node"
     return "ffmpeg_node"
 
+
 # ── GRAPH ─────────────────────────────────────────────────────────────────────
 builder = StateGraph(AgentState)
 
-builder.add_node("classifier_node",   classifier_node)
-builder.add_node("planning_node",     planning_node)
+builder.add_node("classifier_node", classifier_node)
+builder.add_node("planning_node", planning_node)
 builder.add_node("scene_executor_node", scene_executor_node)
-builder.add_node("ffmpeg_node",       ffmpeg_node)
-builder.add_node("text_node",         text_node)
+builder.add_node("ffmpeg_node", ffmpeg_node)
+builder.add_node("text_node", text_node)
 
 builder.add_edge(START, "classifier_node")
 
-builder.add_conditional_edges("classifier_node", route_after_classify, {
-    "manim_only":      "planning_node",
-    "text":            "text_node",
-})
+builder.add_conditional_edges(
+    "classifier_node",
+    route_after_classify,
+    {
+        "manim_only": "planning_node",
+        "text": "text_node",
+    },
+)
 
 builder.add_edge("planning_node", "scene_executor_node")
 
-builder.add_conditional_edges("scene_executor_node", route_after_scene, {
-    "scene_executor_node": "scene_executor_node",  # loop
-    "ffmpeg_node":         "ffmpeg_node",
-})
+builder.add_conditional_edges(
+    "scene_executor_node",
+    route_after_scene,
+    {
+        "scene_executor_node": "scene_executor_node",  # loop
+        "ffmpeg_node": "ffmpeg_node",
+    },
+)
 
 builder.add_edge("ffmpeg_node", END)
-builder.add_edge("text_node",   END)
+builder.add_edge("text_node", END)
 
 agent = builder.compile()
+
+
+class Agent:
+    def __init__(self, session_id, attempts=3, use_LLM=True):
+        self.session_id = session_id
+        self.attempts = attempts
+        self.use_LLM = use_LLM
+        self.GEN_DIR = GEN_DIR
+        self.MEDIA_DIR = MEDIA_DIR
+
+    def run_agent(self, query):
+        initial_state = {
+            "messages": [HumanMessage(content=query)],
+            "llm_calls": 0,
+            "scene_plan": [],
+            "current_index": 0,
+            "completed_urls": [],
+            "final_video_url": None,
+            "route": "",
+        }
+        result = agent.invoke(initial_state)
+        if result.get("final_video_url"):
+            return {"string": result["final_video_url"], "ok": True}
+        elif result.get("messages"):
+            return {"string": result["messages"][-1].content, "ok": True}
+        return {"string": str(result), "ok": True}

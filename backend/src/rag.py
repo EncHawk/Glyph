@@ -3,9 +3,11 @@ import os
 # from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.tools import tool
 from langchain.agents import create_agent
+from supabase import create_client, Client
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
@@ -28,22 +30,25 @@ load_dotenv()
 # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
 class RagAgent:
-    def __init__(self, embeddings, model, session_id):
+    def __init__(self, embeddings, model, session_id): # gets the model and the embedding model
         self.embeddings = embeddings
         self.model = model
         self.session_id = session_id
-        self.active_sessions = {"session_id":session_id}
+        # self.active_sessions = {"session_id":session_id}
 
+        self.supabase: Client = create_client(
+            os.environ["SUPABASE_URL"],
+            os.environ["SUPABASE_KEY"]
+        )
 
-    def get_user_vector_store(self, session_id: str):
-        if session_id not in self.active_sessions:
-            persist_dir = f'./glyphDB/session_{session_id}'
-            self.active_sessions[session_id] = Chroma(
-                collection_name=f"session_{session_id}",
-                embedding_function=self.embeddings,
-                persist_directory=persist_dir
-            )
-        return self.active_sessions[session_id]
+    def get_user_vector_store(self, session_id: str) -> SupabaseVectorStore:
+        # Each session is isolated via metadata filter, not separate collections
+        return SupabaseVectorStore(
+            client=self.supabase,
+            embedding=self.embeddings,
+            table_name="documents",
+            query_name="match_documents",  # see step 5 below
+        )
 
     def store(self, source, session_id: str, is_text=False):
         vector_store = self.get_user_vector_store(session_id)
@@ -69,7 +74,12 @@ class RagAgent:
 
     def retrieve_similarity(self, query: str, session_id: str):
         vector_store = self.get_user_vector_store(session_id)
-        docs = vector_store.similarity_search(query, k=5)
+        docs = vector_store.similarity_search(
+            query,
+            k=5,
+            filter={"session_id": session_id}
+        )
+
 
         serialized = "\n\n".join(
             f"Source: {d.metadata}\nContent: {d.page_content}"
@@ -80,7 +90,7 @@ class RagAgent:
     def infer(self, query: str, session_id: str):
         tools = [lambda q: self.retrieve_similarity(q, session_id)]
 
-        prompt = "Use the retrieval tool to answer queries for this session."
+        prompt = "Use the retrieval tool to answer queries from the user, do not go beyond the bounds of what is asked of you."
 
         agent = create_agent(self.model, tools, system_prompt=prompt)
             
@@ -89,16 +99,7 @@ class RagAgent:
         return response["structured_output"]
         
 
-    # more or less, un-needed.
-    def cleanup_session(self, session_id: str):
-        if session_id in self.active_sessions:
-            import shutil
-            path = f'./glyphDB/session_{session_id}'
-            if os.path.exists(path):
-                shutil.rmtree(path)
-            del self.active_sessions[session_id]
-
-
+# run this while testing.
 # if __name__=="__main__":
 #     print('entered rag.py')
 #     path = os.path.join(os.path.dirname(__name__),'uploads','Jeevan_Koiri_Software_Engineer.pdf')
