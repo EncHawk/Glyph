@@ -4,7 +4,7 @@ from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from supabase import create_client, Client
 from langchain_core.documents import Document
-from langchain.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,11 +20,12 @@ load_dotenv()
 # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
 
 class RagAgent:
-    def __init__(self, embeddings, model, session_id): # gets the model and the embedding model
+    def __init__(self, embeddings, model, session_id, research=""): # gets the model and the embedding model
         self.embeddings = embeddings
         self.model = model
         self.session_id = session_id
         # self.active_sessions = {"session_id":session_id}
+        self.research = research
 
         self.supabase: Client = create_client(
             os.environ["SUPABASE_URL"],
@@ -40,13 +41,13 @@ class RagAgent:
             query_name="match_documents",  # see step 5 below
         )
 
-    def store(self, source, session_id: str, is_text=False):
+    def store(self, source, session_id: str, is_text=False, source_label="raw_text"):
         vector_store = self.get_user_vector_store(session_id)
 
         if is_text:
             documents = [Document(
                 page_content=source,
-                metadata={'source': 'raw_text', 'session_id': session_id}
+                metadata={'source': source_label, 'session_id': session_id}
             )]
         else:
             loader = UnstructuredPDFLoader(source)
@@ -62,14 +63,66 @@ class RagAgent:
 
         return vector_store.add_documents(splits)
 
+    def _match_documents_rpc(self, query_embedding, session_id: str, limit: int):
+        candidate_payloads = [
+            {
+                "query_embedding": query_embedding,
+                "match_count": limit * 2,
+                "filter": {"session_id": session_id},
+            },
+            {
+                "query_embedding": query_embedding,
+                "filter": {"session_id": session_id},
+            },
+            {
+                "query_embedding": query_embedding,
+                "match_count": limit * 2,
+            },
+            {
+                "query_embedding": query_embedding,
+            },
+        ]
+
+        last_error = None
+        for payload in candidate_payloads:
+            try:
+                result = self.supabase.rpc("match_documents", payload).execute()
+                rows = result.data or []
+                rows = [
+                    row
+                    for row in rows
+                    if row.get("metadata", {}).get("session_id") == session_id
+                ]
+                return rows[:limit]
+            except Exception as exc:
+                last_error = exc
+                print(
+                    "match_documents RPC failed for session "
+                    f"{session_id} with payload keys {list(payload.keys())}: {exc}"
+                )
+
+        if last_error:
+            raise RuntimeError(
+                f"Unable to retrieve documents from Supabase for session {session_id}"
+            ) from last_error
+        return []
+
     def retrieve_similarity(self, query: str, session_id: str):
-        vector_store = self.get_user_vector_store(session_id)
-        docs = vector_store.similarity_search(
-            query,
-            k=5,
-            filter={"session_id": session_id}
+        query_embedding = self.embeddings.embed_query(query)
+        rows = self._match_documents_rpc(
+            query_embedding=query_embedding,
+            session_id=session_id,
+            limit=5,
         )
 
+        docs = [
+            Document(
+                page_content=row.get("content", ""),
+                metadata=row.get("metadata", {}),
+            )
+            for row in rows
+            if row.get("content")
+        ]
 
         serialized = "\n\n".join(
             f"Source: {d.metadata}\nContent: {d.page_content}"
@@ -78,27 +131,54 @@ class RagAgent:
         return serialized, docs
 
     def infer(self, query: str, session_id: str):
-        serialized_context, _ = self.retrieve_similarity(query, session_id)
-        if not serialized_context:
-            serialized_context = "No relevant context was found in the vector store for this session."
+        try:
+            serialized_context, _ = self.retrieve_similarity(query, session_id)
+        except Exception as exc:
+            print(f"Context retrieval failed for session {session_id}: {exc}")
+            serialized_context = ""
 
-        response = self.model.invoke(
-            [
+        if serialized_context:
+            messages = [
                 SystemMessage(
                     content=(
-                        "You are a retrieval QA assistant. Use the retrieved context to answer. "
-                        "If context is missing, say that clearly and answer conservatively."
+                        "You are a retrieval QA assistant. Use the retrieved context as the primary grounding for your answer. "
+                        "If the context is incomplete, you may supplement it with general knowledge or additional research, "
+                        "but clearly avoid inventing facts."
                     )
                 ),
                 HumanMessage(
                     content=(
                         f"Question:\n{query}\n\n"
                         f"Retrieved Context:\n{serialized_context}"
+                        f"\n\nAdditional Research:\n{self.research}"
                     )
                 ),
             ]
-        )
-        return response.content if hasattr(response, "content") else str(response)
+        else:
+            messages = [
+                SystemMessage(
+                    content=(
+                        "You are a helpful educational assistant. Answer clearly and directly. "
+                        "No retrieved session context is available, so use your own knowledge and any additional research provided. "
+                        "If something is uncertain, say so briefly."
+                    )
+                ),
+                HumanMessage(
+                    content=(
+                        f"Question:\n{query}"
+                        f"\n\nAdditional Research:\n{self.research}"
+                    )
+                ),
+            ]
+
+        response = self.model.invoke(messages)
+        content = response.content if hasattr(response, "content") else response
+        if isinstance(content, list):
+            content = "\n".join(str(item) for item in content if item)
+        content = str(content).strip()
+        if content:
+            return content
+        return "I could not generate a useful answer from the available context and model response."
         
 
 # run this while testing.

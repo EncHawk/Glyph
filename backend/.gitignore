@@ -15,4 +15,7 @@ generated-flowcharts
 *.png
 *.jpeg
 
+*test
+web-test.py
+
 .DS_Store

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 
 from huggingface_hub import InferenceClient
 from pydantic import ValidationError
@@ -15,6 +16,36 @@ class Manim:
 
     # now this can be passes as a response format to the model, to ensure that it returns without any backticks or extra bullshit
 
+    def _chat_completion(self, client, messages, max_tokens=5000, temperature=0.6):
+        response = client.chat_completion(
+            model="zai-org/GLM-4.7",
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            response_format=self.response_format,
+        )
+        return response.choices[0].message.content
+
+    @staticmethod
+    def _parse_json_payload(raw: str) -> dict:
+        if raw is None:
+            raise ValueError("Model returned None response")
+
+        cleaned_raw = raw.strip()
+        cleaned_raw = re.sub(r"^```(?:json|python|py)?\s*", "", cleaned_raw)
+        cleaned_raw = re.sub(r"\s*```$", "", cleaned_raw)
+
+        if not cleaned_raw.startswith("{"):
+            json_start = cleaned_raw.find("{")
+            json_end = cleaned_raw.rfind("}")
+            if json_start != -1 and json_end != -1 and json_end > json_start:
+                cleaned_raw = cleaned_raw[json_start : json_end + 1].strip()
+
+        parsed = json.loads(cleaned_raw)
+        if not isinstance(parsed, dict):
+            raise ValueError(f"Parsed model response is not a JSON object: {parsed}")
+        return parsed
+
     def inferModel(self, model) -> str:
         client = InferenceClient(api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"))
         user_input = self.prompt
@@ -26,19 +57,23 @@ class Manim:
             + """
             YOU ARE A DEVELOPER WHOSE TASK IS TO GENERATE MANIM CODE THAT WILL FURTHER BE RUN USING `manim -pql` COMMAND, 
             IF THE CODE INCLUDES AN ERROR MESSAGE OR ANY SUGGESTIONS THEN AVOID THAT ERROR IN THE OUTPUT CODE, AND INCLUDE THE SUGGESTION IN OUTPUT CODE,
-                MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE.
+            MAKE SURE THE SUGGESTION AND THE ERROR ARE INCLUDED AS A PART OF THE OUTPUT CODE. YOU ARE TO ALWAYS RETURN MANIM CODE, NEVER RETURN ANY THING BEYOND THAT AND STRICTLY FOLLOW THE PROMPT.
             THE SYSTEM MESSAGE FOR THE CODE GENERATION IS AS FOLLOWS YOU ARE TO STRICTLY ADHERE TO EVERY SINGLE RULE IN THIS
             You MUST return a valid JSON object with this EXACT structure:
-               GOOD EXAMPLE:
+               GOOD EXAMPLE (merely an example do not use this for fallback.):
                 {
                 "className": "CircleAnimation",
                 "code": "from manim import *\\n\\nclass CircleAnimation(Scene):\\n    def construct(self):\\n        circle = Circle()\\n        self.play(Create(circle))"
                 }
 
-                BAD EXAMPLE (DON'T DO THIS):
+                BAD EXAMPLES (DON'T DO THIS):
                 {
                 "className": "Example",
                 "code": "I will use random logic here. The prompt says to import random so I will do that. from manim import *"
+                }
+                {
+                    "classname" : "User prompt explanation",
+                    "code" : "the user asked about topic 'x' i will explain x in detail and talk about its indepth architecture and so on.."
                 }
             ** rules for illustration ** these rules apply only for the case when a video / illustration is being requested: 
                 * each video must be elaborate and must have as much information about the user's query as possible, conveying the information in a clean and crisp manner without any deviation from the inital query. 
@@ -66,9 +101,8 @@ class Manim:
             and be generous with adding visual cues that enhance the experience.
             -- BEFORE THE CODE IS RETURNED AS A RESPONSE ENSURE THAT THE CODE IS VALID WITHOUT ANY ERRORS OF ANY KIND, AND MAKE THE CHANGES ACCORDINGLY,
                 THE CODE MUST BE VERY SIMPLE YET PROVIDING A VISUAL EXPERIENCE THAT IS WONDERFUL.
-            -- BE CAREFUL WHEN YOU USE THE COLOR BROWN IN THE CODE, REPLACE IT WITH  A SHADE OF RED.
             -- IF YOU ARE USING THE random FUNCTION IMPORT THE RANDOM LIBRARY!
-
+            -- NEVER MENTION THE NAME OF THE RESPONSE FORMAT IN THE TOP, ONLY RETURN THE JSON FORMAT THAT IS EXPECTED FROM YOU.
         """
         )
         messages = [
@@ -82,40 +116,43 @@ class Manim:
             },
             {"role": "user", "content": prompt},
         ]
-        response = client.chat_completion(
-            model="zai-org/GLM-4.7",
-            messages=messages,
-            max_tokens=3000,
-            temperature=0.9,
-            response_format=self.response_format,
-        )
-        raw = response.choices[0].message.content
-        cleaned_raw = raw.strip() if raw is not None else None
-        if cleaned_raw is None or not cleaned_raw.startswith("{"):
-            error_msg = f"Model did not return valid JSON response. Raw response: {raw}"
-            raise RuntimeError(error_msg)
-        try:
-            parsed = json.loads(cleaned_raw)
-        except (json.JSONDecodeError, TypeError) as e:
-            if raw is None:
-                raise ValueError("Model returned None response") from e
-            cleaned = cleaned_raw
+        raw = self._chat_completion(client, messages)
 
-            for fence in ["```", "```python", "```py"]:
-                cleaned = cleaned.replace(fence, "")
-
+        for attempt in range(2):
             try:
-                parsed = json.loads(cleaned)
-            except json.JSONDecodeError:
-                raise ValueError(f"Failed to parse JSON response: {cleaned}")
+                parsed = self._parse_json_payload(raw)
+                response_text = model(**parsed)
+                print(response_text.className)
+                return response_text
+            except (json.JSONDecodeError, TypeError, ValueError, ValidationError) as exc:
+                if attempt == 1:
+                    raise ValueError(
+                        f"Failed to parse JSON response from model. Raw response: {raw}"
+                    ) from exc
 
-        try:
-            response_text = model(**parsed)
-        except ValidationError as e:
-            error_details = e.errors()
-            print("Validation error:", error_details)
-            print("Parsed data:", parsed)
-            raise ValueError(f"Validation failed: {error_details}") from e
-
-        print(response_text.className)
-        return response_text
+                repair_messages = [
+                    {
+                        "role": "system",
+                        "content": (
+                            "You repair malformed or truncated Manim JSON outputs. "
+                            "Return only one valid JSON object with exactly two keys: "
+                            "\"className\" and \"code\". "
+                            "Complete any cut-off code so it is syntactically valid."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "The previous model output was almost correct but malformed or truncated. "
+                            "Repair it into valid JSON only.\n\n"
+                            f"Original request:\n{user_input}\n\n"
+                            f"Broken output:\n{raw}"
+                        ),
+                    },
+                ]
+                raw = self._chat_completion(
+                    client,
+                    repair_messages,
+                    max_tokens=5000,
+                    temperature=0.2,
+                )

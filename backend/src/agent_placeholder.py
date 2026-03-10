@@ -18,6 +18,7 @@ from typing_extensions import Annotated, TypedDict
 
 from manim_agent import Manim
 from rag import RagAgent
+from parallel import Parallel
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,6 +32,46 @@ llm = HuggingFaceEndpoint(
     huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
 )
 model = ChatHuggingFace(llm=llm)
+
+
+def _get_parallel_client() -> Optional[Parallel]:
+    api_key = os.getenv("PARALLEL_API_KEY")
+    if not api_key:
+        return None
+    return Parallel(api_key=api_key)
+
+
+def _build_web_research_context(query: str) -> str:
+    client = _get_parallel_client()
+    if client is None:
+        return ""
+
+    try:
+        search = client.beta.search(
+            objective=(
+                f"{query}. Prefer reliable educational sources. "
+                "Use Wikipedia only as a general reference."
+            ),
+            mode="one-shot",
+            excerpts={"max_chars_per_result": 1200, "max_chars_total": 4000},
+            max_results=5,
+        )
+    except Exception as exc:
+        print(f"Web search failed for query '{query}': {exc}")
+        return ""
+
+    formatted_results = []
+    for index, item in enumerate(search.results or [], start=1):
+        excerpts = "\n".join(item.excerpts or []).strip()
+        if not excerpts:
+            continue
+        title = item.title or item.url
+        publish_date = f"\nPublished: {item.publish_date}" if item.publish_date else ""
+        formatted_results.append(
+            f"[{index}] {title}\nURL: {item.url}{publish_date}\n{excerpts}"
+        )
+
+    return "\n\n".join(formatted_results)
 
 
 def _slugify(value: str, max_len: int = 48) -> str:
@@ -129,6 +170,42 @@ def _upload_to_s3(local_path: str, s3_key: str, bucket_name: str = S3_BUCKET_NAM
     return f"https://{bucket_name}.s3.amazonaws.com/{s3_key}"
 
 
+def _build_manim_generation_prompt(
+    prompt: str,
+    class_name_hint: Optional[str] = None,
+    correction_context: Optional[dict] = None,
+    attempt: int = 1,
+) -> str:
+    final_prompt = prompt
+    if class_name_hint:
+        final_prompt = f"""
+        {final_prompt}
+        IMPORTANT:
+        - Use exactly this class name for the Manim scene: {class_name_hint}
+        - Return exactly one Scene class.
+        """
+
+    if correction_context:
+        previous_code = correction_context.get("code", "")
+        final_prompt = f"""
+        {final_prompt}
+
+        IMPORTANT: Attempt {attempt} is a corrective retry.
+        Previous attempt failed with this error:
+        {correction_context.get("error", "Unknown error")}
+
+        Previous code that failed:
+        ```python
+        {previous_code}
+        ```
+
+        Regenerate the same scene, improve the output, and directly address the previous failure.
+        If the failure looked like a provider/server error, keep the scene intent the same but simplify the implementation.
+        """
+
+    return final_prompt
+
+
 @tool
 def manim_tool(
     prompt: str,
@@ -156,86 +233,90 @@ def manim_tool(
     }
 
     run_task_id = _build_task_id(task_id)
+    max_attempts = 3
+    feedback_context = dict(correction_context or {})
+    last_error = None
+    last_code = feedback_context.get("code")
+    last_class_name = class_name_hint
 
-    try:
-        final_prompt = prompt
-        if class_name_hint:
-            final_prompt = f"""{final_prompt}
+    for attempt in range(1, max_attempts + 1):
+        response_text = None
+        generated_code = None
+        try:
+            final_prompt = _build_manim_generation_prompt(
+                prompt=prompt,
+                class_name_hint=class_name_hint,
+                correction_context=feedback_context if feedback_context else None,
+                attempt=attempt,
+            )
 
-IMPORTANT:
-- Use exactly this class name for the Manim scene: {class_name_hint}
-- Return exactly one Scene class.
-"""
-        if correction_context:
-            final_prompt = f"""
-{final_prompt}
+            instance = Manim(response_format=response_format, prompt=final_prompt)
+            response_text = instance.inferModel(model=ModelResponse)
 
-IMPORTANT: Previous attempt failed with this error:
-{correction_context.get("error", "Unknown error")}
+            target_class = _safe_class_name(class_name_hint or response_text.className)
+            generated_code = response_text.code
+            generated_code, replaced = re.subn(
+                r"class\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([^)]*Scene[^)]*)\)\s*:",
+                f"class {target_class}(\\1):",
+                generated_code,
+                count=1,
+            )
+            if not replaced:
+                target_class = _safe_class_name(response_text.className)
 
-Previous code that failed:
-```python
-{correction_context.get("code", "")}
-```
+            script_dir = os.path.join(GEN_DIR, run_task_id)
+            os.makedirs(script_dir, exist_ok=True)
+            script_path = os.path.join(script_dir, f"{target_class}.py")
+            with open(script_path, "w", encoding="utf-8") as file_obj:
+                file_obj.write(generated_code)
 
-Fix the error and regenerate valid Manim code for the same scene.
-"""
+            local_video = _render_manim(script_path, target_class)
 
-        instance = Manim(response_format=response_format, prompt=final_prompt)
-        response_text = instance.inferModel(model=ModelResponse)
-
-        target_class = _safe_class_name(class_name_hint or response_text.className)
-        generated_code = response_text.code
-        generated_code, replaced = re.subn(
-            r"class\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([^)]*Scene[^)]*)\)\s*:",
-            f"class {target_class}(\\1):",
-            generated_code,
-            count=1,
-        )
-        if not replaced:
-            target_class = _safe_class_name(response_text.className)
-
-        script_dir = os.path.join(GEN_DIR, run_task_id)
-        os.makedirs(script_dir, exist_ok=True)
-        script_path = os.path.join(script_dir, f"{target_class}.py")
-        with open(script_path, "w", encoding="utf-8") as file_obj:
-            file_obj.write(generated_code)
-
-        local_video = _render_manim(script_path, target_class)
-
-        resolved_scene_id = scene_id or f"scene_{scene_index:02d}"
-        s3_key = _build_scene_s3_key(
-            task_id=run_task_id,
-            scene_index=max(scene_index, 1),
-            scene_id=resolved_scene_id,
-            class_name=target_class,
-        )
-        aws_string = _upload_to_s3(local_video, s3_key, S3_BUCKET_NAME)
-        return {
-            "ok": True,
-            "msg": "Scene rendered and uploaded",
-            "string": aws_string,
-            "code": generated_code,
-            "className": target_class,
-            "task_id": run_task_id,
-            "s3_key": s3_key,
-        }
-    except Exception as exc:
-        return {
-            "ok": False,
-            "error": str(exc),
-            "code": response_text.code if "response_text" in locals() else None,
-            "className": (
+            resolved_scene_id = scene_id or f"scene_{scene_index:02d}"
+            s3_key = _build_scene_s3_key(
+                task_id=run_task_id,
+                scene_index=max(scene_index, 1),
+                scene_id=resolved_scene_id,
+                class_name=target_class,
+            )
+            aws_string = _upload_to_s3(local_video, s3_key, S3_BUCKET_NAME)
+            return {
+                "ok": True,
+                "msg": "Scene rendered and uploaded",
+                "string": aws_string,
+                "code": generated_code,
+                "className": target_class,
+                "task_id": run_task_id,
+                "s3_key": s3_key,
+                "attempts": attempt,
+            }
+        except Exception as exc:
+            last_error = str(exc)
+            last_code = generated_code or (
+                response_text.code if response_text is not None else last_code
+            )
+            last_class_name = (
                 class_name_hint
-                if class_name_hint
-                else (response_text.className if "response_text" in locals() else None)
-            ),
-            "task_id": run_task_id,
-        }
+                or (response_text.className if response_text is not None else last_class_name)
+            )
+            feedback_context = {
+                "error": last_error,
+                "code": last_code,
+                "attempt": attempt,
+            }
+
+    return {
+        "ok": False,
+        "error": last_error or "Unknown Manim generation error",
+        "code": last_code,
+        "className": last_class_name,
+        "task_id": run_task_id,
+        "attempts": max_attempts,
+    }
 
 
 @tool
-def contextual_text_tool(prompt: str, session_id: str):
+def contextual_text_tool(prompt: str, session_id: str, web_search=""):
     """
     Generate a text response using RAG (store + retrieve + answer).
     """
@@ -248,11 +329,26 @@ def contextual_text_tool(prompt: str, session_id: str):
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-mpnet-base-v2"
     )
-    rag_agent = RagAgent(embeddings=embeddings, model=rag_model, session_id=session_id)
+    rag_agent = RagAgent(
+        embeddings=embeddings,
+        model=rag_model,
+        session_id=session_id,
+        research=str(web_search) if web_search else "",
+    )
 
-    # Store incoming query as session memory, then retrieve and answer.
-    rag_agent.store(source=prompt, session_id=session_id, is_text=True)
-    return rag_agent.infer(query=prompt, session_id=session_id)
+    answer = rag_agent.infer(query=prompt, session_id=session_id)
+
+    try:
+        rag_agent.store(
+            source=answer,
+            session_id=session_id,
+            is_text=True,
+            source_label="assistant_response",
+        )
+    except Exception as exc:
+        print(f"Failed to store text exchange for session {session_id}: {exc}")
+
+    return answer
 
 
 class Scene(TypedDict):
@@ -269,6 +365,7 @@ class AgentState(TypedDict):
     scene_plan: List[Scene]
     current_index: int
     completed_urls: Annotated[list[str], operator.add]
+    warnings: Annotated[list[str], operator.add]
     final_video_url: Optional[str]
     route: Optional[str]
     task_id: str
@@ -349,12 +446,18 @@ Topic: {user_msg}
     normalized_plan: List[Scene] = []
 
     for index, raw_scene in enumerate(scene_plan, start=1):
-        scene_id = raw_scene.get("id", f"scene_{index:02d}")
+        if not isinstance(raw_scene, dict):
+            raw_scene = {}
+
+        scene_id = str(raw_scene.get("id", f"scene_{index:02d}")).strip()
+        if not scene_id:
+            scene_id = f"scene_{index:02d}"
+
         class_name_base = _safe_class_name(
-            raw_scene.get("class_name", f"Scene{index:02d}")
+            str(raw_scene.get("class_name", f"Scene{index:02d}"))
         )
         class_name = f"{class_name_base}_{task_suffix}_{index:02d}"
-        scene_prompt = raw_scene.get("prompt", user_msg)
+        scene_prompt = str(raw_scene.get("prompt", user_msg)).strip() or user_msg
 
         normalized_plan.append(
             {
@@ -370,6 +473,7 @@ Topic: {user_msg}
         "scene_plan": normalized_plan,
         "current_index": 0,
         "completed_urls": [],
+        "warnings": [],
         "llm_calls": state.get("llm_calls", 0) + 1,
     }
 
@@ -378,22 +482,42 @@ def scene_executor_node(state: AgentState) -> AgentState:
     """Renders one scene and uploads it to S3."""
     index = state["current_index"]
     scene = state["scene_plan"][index]
+    scene_id = str(scene["id"]).strip() or f"scene_{index + 1:02d}"
+    scene_prompt = str(scene["prompt"]).strip()
 
     result = manim_tool.invoke(
         {
-            "prompt": scene["prompt"] + "Do not make any errors, ensure that the errors are minimal",
+            "prompt": (
+                f"{scene_prompt}\n"
+                "Do not make any errors, ensure that the errors are minimal."
+            ),
             "class_name_hint": scene["class_name"],
             "task_id": state["task_id"],
-            "scene_id": scene["id"],
+            "scene_id": scene_id,
             "scene_index": index + 1,
             "correction_context": None,
         }
     )
 
     if not result.get("ok"):
-        raise RuntimeError(
-            f"Scene generation failed for {scene['id']}: {result.get('error', 'Unknown error')}"
+        failure_message = (
+            f"Scene generation failed for {scene_id}: "
+            f"{result.get('error', 'Unknown error')}"
         )
+        if state.get("completed_urls"):
+            return {
+                "current_index": len(state["scene_plan"]),
+                "warnings": [failure_message],
+                "messages": [
+                    HumanMessage(
+                        content=(
+                            "Returning a partial video because later scene generation "
+                            "failed after earlier scenes were completed."
+                        )
+                    )
+                ],
+            }
+        raise RuntimeError(failure_message)
 
     s3_url = result["string"]
     updated_plan = list(state["scene_plan"])
@@ -473,16 +597,19 @@ def ffmpeg_node(state: AgentState) -> AgentState:
 
     return {
         "final_video_url": final_url,
+        "warnings": state.get("warnings", []),
         "messages": [HumanMessage(content=f"Final video ready: {final_url}")],
     }
 
 
 def text_node(state: AgentState) -> AgentState:
     """Handles pure text responses."""
+    search_context = _build_web_research_context(state["messages"][-1].content)
     result = contextual_text_tool.invoke(
         {
             "prompt": state["messages"][-1].content,
             "session_id": state["session_id"],
+            "web_search": search_context,
         }
     )
     return {"messages": [HumanMessage(content=str(result))]}
@@ -558,6 +685,7 @@ class Agent:
             "scene_plan": [],
             "current_index": 0,
             "completed_urls": [],
+            "warnings": [],
             "final_video_url": None,
             "route": route,
             "task_id": self.task_id,
@@ -574,6 +702,7 @@ class Agent:
                     "ok": True,
                     "route": resolved_route,
                     "task_id": self.task_id,
+                    "warnings": result.get("warnings", []),
                 }
             if result.get("messages"):
                 return {
@@ -581,12 +710,14 @@ class Agent:
                     "ok": True,
                     "route": resolved_route,
                     "task_id": self.task_id,
+                    "warnings": result.get("warnings", []),
                 }
             return {
                 "string": str(result),
                 "ok": True,
                 "route": resolved_route,
                 "task_id": self.task_id,
+                "warnings": result.get("warnings", []),
             }
         except Exception as exc:
             return {
@@ -594,4 +725,5 @@ class Agent:
                 "error": str(exc),
                 "task_id": self.task_id,
                 "route": route or "unknown",
+                "warnings": [],
             }
