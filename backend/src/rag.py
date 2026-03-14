@@ -5,6 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from supabase import create_client, Client
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, SystemMessage
+from huggingface_hub import InferenceClient
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,6 +31,9 @@ class RagAgent:
         self.supabase: Client = create_client(
             os.environ["SUPABASE_URL"],
             os.environ["SUPABASE_KEY"]
+        )
+        self.inference_client = InferenceClient(
+            api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN")
         )
 
     def get_user_vector_store(self, session_id: str) -> SupabaseVectorStore:
@@ -144,6 +148,7 @@ class RagAgent:
                         "You are a retrieval QA assistant. Use the retrieved context as the primary grounding for your answer. "
                         "If the context is incomplete, you may supplement it with general knowledge or additional research, "
                         "but clearly avoid inventing facts."
+                        "If there are no research contents found, try answering on your own."
                     )
                 ),
                 HumanMessage(
@@ -177,8 +182,39 @@ class RagAgent:
             content = "\n".join(str(item) for item in content if item)
         content = str(content).strip()
         if content:
-            return content
-        return "I could not generate a useful answer from the available context and model response."
+            return {
+                "content": content,
+                "research": self.research,
+            }
+
+        print(
+            f"ChatHuggingFace returned empty content for session {session_id}. "
+            "Falling back to direct Hugging Face chat completion."
+        )
+        direct_messages = [
+            {
+                "role": "system" if isinstance(message, SystemMessage) else "user",
+                "content": message.content,
+            }
+            for message in messages
+        ]
+        direct_response = self.inference_client.chat_completion(
+            model="Qwen/Qwen2.5-7B-Instruct",
+            messages=direct_messages,
+            max_tokens=1200,
+            temperature=0.3,
+        )
+        direct_content = direct_response.choices[0].message.content
+        direct_content = str(direct_content).strip() if direct_content is not None else ""
+        if direct_content:
+            return {
+                "content": direct_content,
+                "research": self.research,
+            }
+        return {
+            "content": "I could not generate a useful answer from the available context and model response.",
+            "research": self.research,
+        }
         
 
 # run this while testing.

@@ -170,6 +170,8 @@ def manim_response():
                 "route": result.get("route", "manim_only"),
                 "create_video": True,
                 "response": result.get("string"),
+                "content": result.get("content"),
+                "research": result.get("research"),
                 "error": result.get("error"),
                 "warnings": result.get("warnings", []),
             }
@@ -248,6 +250,8 @@ def agent_video_only():
                 "route": result.get("route", "manim_only"),
                 "create_video": True,
                 "response": result.get("string"),
+                "content": result.get("content"),
+                "research": result.get("research"),
                 "error": result.get("error"),
                 "warnings": result.get("warnings", []),
             }
@@ -310,6 +314,8 @@ def response():
         "route": resolved_route,
         "create_video": create_video,
         "response": result.get("string"),
+        "content": result.get("content"),
+        "research": result.get("research"),
         "error": result.get("error"),
         "warnings": result.get("warnings", []),
     }

@@ -321,7 +321,7 @@ def contextual_text_tool(prompt: str, session_id: str, web_search=""):
     Generate a text response using RAG (store + retrieve + answer).
     """
     rag_llm = HuggingFaceEndpoint(
-        repo_id="zai-org/GLM-4.7",
+        repo_id="Qwen/Qwen2.5-7B-Instruct",
         huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         temperature=0.3,
     )
@@ -337,10 +337,13 @@ def contextual_text_tool(prompt: str, session_id: str, web_search=""):
     )
 
     answer = rag_agent.infer(query=prompt, session_id=session_id)
+    answer_content = (
+        answer.get("content", "") if isinstance(answer, dict) else str(answer)
+    )
 
     try:
         rag_agent.store(
-            source=answer,
+            source=answer_content,
             session_id=session_id,
             is_text=True,
             source_label="assistant_response",
@@ -367,6 +370,8 @@ class AgentState(TypedDict):
     completed_urls: Annotated[list[str], operator.add]
     warnings: Annotated[list[str], operator.add]
     final_video_url: Optional[str]
+    text_content: Optional[str]
+    text_research: Optional[str]
     route: Optional[str]
     task_id: str
     session_id: str
@@ -612,7 +617,17 @@ def text_node(state: AgentState) -> AgentState:
             "web_search": search_context,
         }
     )
-    return {"messages": [HumanMessage(content=str(result))]}
+    if isinstance(result, dict):
+        return {
+            "messages": [HumanMessage(content=str(result.get("content", "")))],
+            "text_content": str(result.get("content", "")),
+            "text_research": str(result.get("research", "")),
+        }
+    return {
+        "messages": [HumanMessage(content=str(result))],
+        "text_content": str(result),
+        "text_research": "",
+    }
 
 
 def route_after_classify(state: AgentState) -> str:
@@ -687,6 +702,8 @@ class Agent:
             "completed_urls": [],
             "warnings": [],
             "final_video_url": None,
+            "text_content": None,
+            "text_research": None,
             "route": route,
             "task_id": self.task_id,
             "session_id": self.session_id,
@@ -710,6 +727,10 @@ class Agent:
                     "ok": True,
                     "route": resolved_route,
                     "task_id": self.task_id,
+                    "content": result.get(
+                        "text_content", result["messages"][-1].content
+                    ),
+                    "research": result.get("text_research", ""),
                     "warnings": result.get("warnings", []),
                 }
             return {
@@ -717,6 +738,8 @@ class Agent:
                 "ok": True,
                 "route": resolved_route,
                 "task_id": self.task_id,
+                "content": result.get("text_content"),
+                "research": result.get("text_research", ""),
                 "warnings": result.get("warnings", []),
             }
         except Exception as exc:
