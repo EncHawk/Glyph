@@ -21,12 +21,22 @@ Glyph is an open-source platform that enables AI-powered multimodal interactions
 
 - Python > 3.11
 - LangChain & LangChain-HuggingFace
-- Langgraph (manim video generation)
+- Langgraph (Agentic orchestration)
 - Flask
 - HuggingFace Inference API
 - Supabase (vector database)
 - AWS S3
 - Manim
+
+### LangGraph Orchestration
+
+The backend agent uses a LangGraph `StateGraph` to route each request through a small execution graph instead of a single monolithic handler.
+
+- `classifier_node` decides whether the request should go to text generation or Manim video generation.
+- `planning_node` creates a normalized scene plan for video requests.
+- `scene_executor_node` generates, renders, and uploads one scene at a time.
+- `ffmpeg_node` downloads completed scene videos, concatenates them, and uploads the final stitched output to AWS S3.
+- `text_node` runs the RAG text path and preserves both generated content and research metadata in the final response.
 
 ### Getting Started
 
@@ -48,9 +58,8 @@ python src/main.py
 - `HUGGINGFACEHUB_API_TOKEN` - HuggingFace API key
 - `SUPABASE_URL` - Supabase project URL
 - `SUPABASE_KEY` - Supabase API key
+- `S3_STORAGE_LINK`: Optional - URL for the AWS S3 bucket.
 - `aws_access_key_id` - AWS access key
 - `aws_secret_access_key` - AWS secret key
 - `aws_region` - AWS region
-
-### License
-Proudly opensource, gotta add MIT tho.
+- `PARALLEL_API_KEY` - Parallel-AI's api key 

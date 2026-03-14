@@ -21,10 +21,8 @@ from langchain.agents.middleware import wrap_model_call, ModelResponse, ModelReq
 # this is essentially only gonna return the output of any of the tools RAG , manim or flowchart
 
 """
-THIS FILE IS DEPRECATED, SWITCH TO agent_placeholder instead
+    THIS FILE IS DEPRECATED, SWITCH TO agent_placeholder instead
 """
-
-
 class Agent:
     def __init__(self, session_id, attempts, use_LLM=True):
         self.session_id = session_id
