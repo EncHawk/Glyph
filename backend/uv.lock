@@ -289,6 +289,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "manim" },
     { name = "marshmallow" },
+    { name = "parallel-web" },
     { name = "pdf2image" },
     { name = "psycopg2-binary" },
     { name = "pydantic" },
@@ -320,6 +321,7 @@ requires-dist = [
     { name = "langgraph", specifier = ">=1.0.5" },
     { name = "manim", specifier = ">=0.19.2" },
     { name = "marshmallow", specifier = ">=3.26.2" },
+    { name = "parallel-web", specifier = ">=0.4.2" },
     { name = "pdf2image", specifier = ">=1.17.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.11" },
     { name = "pydantic", specifier = ">=2.12.5" },
@@ -2616,6 +2618,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a1/d4/1fc4078c65507b51b96ca8f8c3ba19e6a61c8253c72794544580a7b6c24d/packaging-25.0.tar.gz", hash = "sha256:d443872c98d677bf60f6a1f2f8c1cb748e8fe762d2bf9d3148b5599295b0fc4f", size = 165727, upload-time = "2025-04-19T11:48:59.673Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/20/12/38679034af332785aac8774540895e234f4d07f7545804097de4b666afd8/packaging-25.0-py3-none-any.whl", hash = "sha256:29572ef2b1f17581046b3a2227d5c611fb25ec70ca1ba8554b24b0e69331a484", size = 66469, upload-time = "2025-04-19T11:48:57.875Z" },
+]
+
+[[package]]
+name = "parallel-web"
+version = "0.4.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio" },
+    { name = "distro" },
+    { name = "httpx" },
+    { name = "pydantic" },
+    { name = "sniffio" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/50/fb9b28a679e01682006b5259abff96de3d16e114e9447a7793fec31715de/parallel_web-0.4.2.tar.gz", hash = "sha256:599b5a8f387dc35c7dc8c81e372eadf6958a40acacea58bf170dfc663c003da7", size = 140026, upload-time = "2026-03-09T22:24:35.448Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/3e/2218fa29637781b8e7ac35a928108ff2614ddd40879389d3af2caa725af5/parallel_web-0.4.2-py3-none-any.whl", hash = "sha256:aa3a4a9aecc08972c5ce9303271d4917903373dff4dd277d9a3e30f9cff53346", size = 144012, upload-time = "2026-03-09T22:24:33.979Z" },
 ]
 
 [[package]]

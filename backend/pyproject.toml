@@ -22,6 +22,7 @@ dependencies = [
     "langgraph>=1.0.5",
     "manim>=0.19.2",
     "marshmallow>=3.26.2",
+    "parallel-web>=0.4.2",
     "pdf2image>=1.17.0",
     "psycopg2-binary>=2.9.11",
     "pydantic>=2.12.5",
