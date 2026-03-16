@@ -125,6 +125,72 @@ input {
   background: var(--bg);
 }
 
+.beta-banner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  width: min(42rem, calc(100vw - 2rem));
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--glass-border));
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+    var(--surface-strong);
+  backdrop-filter: blur(24px);
+  box-shadow: var(--shadow-md);
+  transform: translateX(-50%);
+}
+
+.beta-banner__copy {
+  min-width: 0;
+}
+
+.beta-banner__eyebrow {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.beta-banner__copy p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.beta-banner__close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--chip-bg);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--transition),
+    background var(--transition),
+    color var(--transition),
+    transform var(--transition);
+}
+
+.beta-banner__close:hover {
+  border-color: var(--glass-border-hover);
+  background: var(--chip-hover-bg);
+  color: var(--text);
+  transform: scale(1.04);
+}
+
 .canvas-surface {
   position: absolute;
   inset: 0;
@@ -825,7 +891,7 @@ input {
 /* ── canvas hint ────────────────────────────────────────────────────── */
 .canvas-hint {
   position: fixed;
-  top: 1rem;
+  top: 5.75rem;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -853,6 +919,15 @@ input {
 
 /* ── responsive ─────────────────────────────────────────────────────── */
 @media (max-width: 720px) {
+  .beta-banner {
+    width: calc(100vw - 1.5rem);
+    padding: 0.85rem 0.9rem;
+  }
+
+  .beta-banner__copy p {
+    font-size: 0.82rem;
+  }
+
   .dock-compact {
     width: calc(100vw - 1.5rem);
   }

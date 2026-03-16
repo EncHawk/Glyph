@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Banner } from '@/components/banner';
 import { CanvasOverlay } from '@/components/canvas/canvas-overlay';
 import { QueryDock } from '@/components/canvas/query-dock';
 import {
@@ -292,6 +293,8 @@ export default function Home() {
 
   return (
     <main className="canvas-shell" data-theme={theme}>
+      <Banner />
+
       <div
         ref={canvasRef}
         className={`canvas-surface${spaceHeldRef.current ? ' panning' : ''}`}
@@ -322,7 +325,10 @@ export default function Home() {
         onToggleTheme={() => setTheme((current) => (current === 'light' ? 'dark' : 'light'))}
       />
 
-      <p className="canvas-hint">Scroll to pan · Ctrl+Scroll to zoom · Drag card headers to move</p>
+      <p className="canvas-hint ">
+        <span className="rounded-full px-1 bg-neutral-100 text-orange-600 mr-3">Beta</span>
+        Scroll to pan · Ctrl+Scroll to zoom · Drag card headers to move
+      </p>
     </main>
   );
 }
