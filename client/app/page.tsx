@@ -327,7 +327,7 @@ export default function Home() {
 
       <p className="canvas-hint ">
         <span className="rounded-full px-1 bg-neutral-100 text-orange-600 mr-3">Beta</span>
-        Scroll to pan · Ctrl+Scroll to zoom · Drag card headers to move
+        Space + drag to move canvas · Ctrl+Scroll to zoom · Drag card headers to move
       </p>
     </main>
   );
