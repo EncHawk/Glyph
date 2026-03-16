@@ -40,8 +40,7 @@ for dep in deps:
     print(dep)
 PY
 
-RUN --mount=type=cache,id=pip-cache,target=/root/.cache/pip \
-    python -m pip install -r /tmp/requirements.txt
+RUN python -m pip install -r /tmp/requirements.txt
 
 COPY --chown=appuser:appuser . .
 
