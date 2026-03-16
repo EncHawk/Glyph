@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Banner } from '@/components/banner';
-import { CanvasOverlay } from '@/components/canvas/canvas-overlay';
-import { QueryDock } from '@/components/canvas/query-dock';
+import { Banner } from '@/app/components/banner';
+import { CanvasOverlay } from '@/app/components/canvas/canvas-overlay';
+import { QueryDock } from '@/app/components/canvas/query-dock';
 import {
   API_BASE,
   CARD_HEIGHT_ESTIMATE,
@@ -16,8 +16,8 @@ import {
   makePendingCard,
   screenToCanvas,
   toResolvedCard,
-} from '@/components/canvas/helpers';
-import type { ApiResponse, Camera, CanvasCard, DragState, Mode } from '@/components/canvas/types';
+} from '@/app/components/canvas/helpers';
+import type { ApiResponse, Camera, CanvasCard, DragState, Mode } from '@/app/components/canvas/types';
 
 export default function Home() {
   const [mode, setMode] = useState<Mode>('text');

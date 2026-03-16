@@ -1,4 +1,4 @@
-import type { ApiResponse, Camera, CanvasCard, Mode } from '@/components/canvas/types';
+import type { ApiResponse, Camera, CanvasCard, Mode } from '@/app/components/canvas/types';
 
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? 'https://glyph-production.up.railway.app';
