@@ -201,7 +201,7 @@ class RagAgent:
         direct_response = self.inference_client.chat_completion(
             model="Qwen/Qwen2.5-7B-Instruct",
             messages=direct_messages,
-            max_tokens=1200,
+            max_tokens=2500,
             temperature=0.3,
         )
         direct_content = direct_response.choices[0].message.content
