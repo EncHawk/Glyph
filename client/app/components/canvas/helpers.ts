@@ -33,6 +33,23 @@ export function normalizeText(value: unknown): string {
   return String(value).trim();
 }
 
+function isSuccessfulResponse(data: ApiResponse): boolean {
+  if (typeof data.ok === 'boolean') return data.ok;
+  if (typeof data.success === 'boolean') return data.success;
+  return !data.error;
+}
+
+function getErrorMessage(data: ApiResponse): string {
+  return (
+    normalizeText(data.error) ||
+    normalizeText(data.message) ||
+    normalizeText(data.msg) ||
+    normalizeText(data.response) ||
+    normalizeText(data.content) ||
+    'Request failed.'
+  );
+}
+
 export function makePendingCard(
   id: string,
   mode: Mode,
@@ -62,19 +79,18 @@ export function toResolvedCard(card: CanvasCard, data: ApiResponse): CanvasCard 
   const content = normalizeText(data.content ?? data.response);
   const research = normalizeText(data.research);
   const response = normalizeText(data.response);
-  const error = normalizeText(data.error);
   const warnings = (data.warnings ?? []).map((warning) => warning.trim()).filter(Boolean);
 
-  if (!data.ok) {
+  if (!isSuccessfulResponse(data)) {
     return {
       ...card,
       kind: 'error',
-      content,
-      research,
-      response,
+      content: '',
+      research: '',
+      response: '',
       route: data.route ?? card.route,
-      error: error || 'Request failed.',
-      warnings,
+      error: getErrorMessage(data),
+      warnings: [],
       statusLabel: 'Failed',
     };
   }

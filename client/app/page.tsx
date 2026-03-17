@@ -162,6 +162,7 @@ export default function Home() {
     (event: React.PointerEvent<HTMLButtonElement>, cardId: string) => {
       event.preventDefault();
       event.stopPropagation();
+      event.currentTarget.setPointerCapture(event.pointerId);
 
       const targetCard = cards.find((card) => card.id === cardId);
       if (!targetCard) return;
@@ -263,6 +264,55 @@ export default function Home() {
     }
   }, [camera, isSubmitting, mode, prompt, sessionId]);
 
+  const regenerateCard = useCallback(async (cardId: string) => {
+    if (!sessionId) return;
+
+    const targetCard = cards.find((card) => card.id === cardId);
+    if (!targetCard) return;
+
+    setCards((current) =>
+      current.map((card) =>
+        card.id === cardId
+          ? {
+              ...card,
+              kind: 'pending',
+              statusLabel: 'Running',
+              error: '',
+              content: '',
+              response: '',
+              warnings: [],
+            }
+          : card,
+      ),
+    );
+
+    try {
+      const response = await fetch(`${API_BASE}/response`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: targetCard.prompt,
+          create_video: targetCard.mode === 'video',
+          session_id: sessionId,
+        }),
+      });
+
+      const data = (await response.json()) as ApiResponse;
+      setCards((current) =>
+        current.map((card) => (card.id === cardId ? toResolvedCard(card, data) : card)),
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Request failed.';
+      setCards((current) =>
+        current.map((card) =>
+          card.id === cardId
+            ? toResolvedCard(card, { ok: false, error: message, warnings: [] })
+            : card,
+        ),
+      );
+    }
+  }, [cards, sessionId]);
+
   const handlePromptKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
       if (event.key === 'Enter' && !event.shiftKey) {
@@ -302,7 +352,7 @@ export default function Home() {
         onPointerDown={handleCanvasPointerDown}
       />
 
-      <CanvasOverlay cards={cards} camera={camera} onStartDrag={beginCardDrag} />
+      <CanvasOverlay cards={cards} camera={camera} onStartDrag={beginCardDrag} onRegenerate={regenerateCard} />
 
       <QueryDock
         cardsCount={cards.length}

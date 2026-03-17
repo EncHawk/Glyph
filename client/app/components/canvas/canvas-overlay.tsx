@@ -7,10 +7,12 @@ export function CanvasOverlay({
   cards,
   camera,
   onStartDrag,
+  onRegenerate,
 }: {
   cards: CanvasCard[];
   camera: Camera;
   onStartDrag: (event: React.PointerEvent<HTMLButtonElement>, cardId: string) => void;
+  onRegenerate: (cardId: string) => void;
 }) {
   return (
     <div className="canvas-card-layer">
@@ -42,7 +44,31 @@ export function CanvasOverlay({
             <div className="card-body">
               <div className="card-meta">
                 <span>{card.route || card.mode}</span>
-                {card.warnings.length > 0 ? <span>{card.warnings.length} warning(s)</span> : null}
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                  {card.warnings.length > 0 ? <span>{card.warnings.length} warning(s)</span> : null}
+                  {card.kind !== 'pending' && (
+                    <button 
+                      type="button" 
+                      onClick={() => onRegenerate(card.id)}
+                      title="Regenerate"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: 0,
+                        display: 'flex',
+                        color: 'var(--text-secondary)'
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 2v6h-6"></path>
+                        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                        <path d="M3 22v-6h6"></path>
+                        <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {card.kind === 'pending' ? (

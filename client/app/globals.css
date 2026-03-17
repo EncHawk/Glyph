@@ -195,6 +195,7 @@ input {
   position: absolute;
   inset: 0;
   cursor: grab;
+  touch-action: none;
   background-image: radial-gradient(circle, var(--dot-color) 1px, transparent 1px);
   background-size: 24px 24px;
   background-position: 0 0;
@@ -270,6 +271,7 @@ input {
   border: 0;
   background: linear-gradient(180deg, var(--card-handle-bg), transparent 100%);
   cursor: grab;
+  touch-action: none;
   text-align: left;
   color: var(--text);
   transition: background var(--transition);

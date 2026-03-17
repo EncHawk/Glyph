@@ -2,12 +2,15 @@ export type Mode = 'text' | 'video';
 export type CardKind = 'pending' | 'text' | 'video' | 'error';
 
 export type ApiResponse = {
-  ok: boolean;
+  ok?: boolean;
+  success?: boolean;
   route?: string | null;
   response?: string | null;
   content?: unknown;
   research?: unknown;
   error?: string | null;
+  message?: unknown;
+  msg?: unknown;
   warnings?: string[];
 };
 
