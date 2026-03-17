@@ -9,10 +9,11 @@ import {
   CARD_HEIGHT_ESTIMATE,
   CARD_STACK_X,
   CARD_STACK_Y,
-  CARD_WIDTH,
   MAX_ZOOM,
   MIN_ZOOM,
   ZOOM_SENSITIVITY,
+  clamp,
+  getCardWidth,
   makePendingCard,
   screenToCanvas,
   toResolvedCard,
@@ -217,18 +218,37 @@ export default function Home() {
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const centerCanvas = screenToCanvas(viewportWidth / 2, viewportHeight / 2, camera);
+    const cardWidth = getCardWidth(viewportWidth);
+    const isPhoneViewport = viewportWidth < 720;
+    const cardsPerRow = isPhoneViewport ? 1 : 3;
+    const verticalOffset = isPhoneViewport ? 96 : 140;
+    const bottomClearance = isPhoneViewport ? 220 : 140;
+    const topClearance = 92;
 
     const index = placementIndexRef.current;
-    const column = index % 3;
-    const row = Math.floor(index / 3);
+    const column = index % cardsPerRow;
+    const row = Math.floor(index / cardsPerRow);
     placementIndexRef.current += 1;
+
+    const offsetX = cardsPerRow === 1 ? 0 : (column - 1) * CARD_STACK_X;
+    const rawX = centerCanvas.x - cardWidth / 2 + offsetX;
+    const rawY = centerCanvas.y - verticalOffset + row * CARD_STACK_Y;
+    const minX = screenToCanvas(16, 0, camera).x;
+    const maxX = screenToCanvas(viewportWidth - 16 - cardWidth * camera.zoom, 0, camera).x;
+    const minY = screenToCanvas(0, topClearance, camera).y;
+    const maxY = screenToCanvas(
+      0,
+      viewportHeight - bottomClearance - CARD_HEIGHT_ESTIMATE * camera.zoom,
+      camera,
+    ).y;
 
     const draftCard = makePendingCard(
       crypto.randomUUID(),
       mode,
       text,
-      centerCanvas.x - CARD_WIDTH / 2 + (column - 1) * CARD_STACK_X,
-      centerCanvas.y - 140 + row * CARD_STACK_Y,
+      clamp(rawX, minX, maxX),
+      clamp(rawY, minY, maxY),
+      cardWidth,
     );
 
     setCards((current) => [...current, draftCard]);

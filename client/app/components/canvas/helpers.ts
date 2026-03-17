@@ -3,6 +3,7 @@ import type { ApiResponse, Camera, CanvasCard, Mode } from '@/app/components/can
 export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE ?? 'https://glyph-production.up.railway.app';
 export const CARD_WIDTH = 380;
+export const CARD_MIN_WIDTH = 240;
 export const CARD_STACK_X = 440;
 export const CARD_STACK_Y = 340;
 export const CARD_HEIGHT_ESTIMATE = 440;
@@ -33,6 +34,15 @@ export function normalizeText(value: unknown): string {
   return String(value).trim();
 }
 
+export function clamp(value: number, min: number, max: number): number {
+  const upperBound = Math.max(min, max);
+  return Math.min(Math.max(value, min), upperBound);
+}
+
+export function getCardWidth(viewportWidth: number): number {
+  return Math.min(CARD_WIDTH, Math.max(CARD_MIN_WIDTH, viewportWidth - 32));
+}
+
 function isSuccessfulResponse(data: ApiResponse): boolean {
   if (typeof data.ok === 'boolean') return data.ok;
   if (typeof data.success === 'boolean') return data.success;
@@ -56,6 +66,7 @@ export function makePendingCard(
   prompt: string,
   x: number,
   y: number,
+  width = CARD_WIDTH,
 ): CanvasCard {
   return {
     id,
@@ -64,7 +75,7 @@ export function makePendingCard(
     prompt,
     x,
     y,
-    width: CARD_WIDTH,
+    width,
     content: '',
     research: '',
     response: '',
