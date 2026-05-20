@@ -1,16 +1,17 @@
-import Link from 'next/link';
+import motion from 'motion/react'
 import { Geist_Mono } from 'next/font/google';
 import { EB_Garamond } from 'next/font/google';
 import { Inter} from 'next/font/google';
 import Prism from '../../components/Prism'
+import EmailInput from '../app-components/EmailInput'
 
 const geist = Geist_Mono({ subsets: ['latin'] });
 const gara = EB_Garamond({subsets:['latin']});
-const edu = Inter({subsets:['latin']});
+const inter = Inter({subsets:['latin']});
 
 export default function LandingPage() {
     return (
-    <main className={`${gara.className} min-h-screen flex items-center justify-center relative bg-neutral-950`}>
+    <main className={`${gara.className} min-h-screen flex flex-col items-center justify-center relative bg-neutral-950`}>
         <div className="absolute inset-0">
             <Prism 
                 animationType="rotate"
@@ -25,19 +26,26 @@ export default function LandingPage() {
             />
         </div>
         <section className="text-center flex flex-col items-center justify-center w-full bg-transparent 
-            text-neutral-100 gap-12 sm:gap-9 lg:gap-10 tracking-wider relative pt-6 sm:pt-10 lg:pt-30
+            text-neutral-100 gap-8 sm:gap-9 lg:gap-10 tracking-wider relative pt-5
         ">
             <h1
-                className='text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-light'
+                className='text-5xl font-medium sm:font-light sm:text-6xl md:text-7xl lg:text-8xl '
             >
-                <span className={` ${geist.className} tracking-tight text-transparent font-light pr-1 pl-0 bg-clip-text bg-radial-[at_50%_80%] from-red-500 to-orange-500 to-90%`}>
+                <span className={` ${geist.className} tracking-tight text-transparent font-light pr-1 pl-0 bg-clip-text bg-radial-[at_50%_80%] from-red-500 to-orange-400 to-90%`}>
                     <i>Visualize</i>
                 </span> your Thoughts <br/>
                 With the power of Manim
             </h1>
-            <video autoPlay loop muted playsInline className='block w-60 md:w-[30vw] md:h-[30vh] rounded-xl object-fill'>
-                <source src='/videos/knn_black.mp4' type='video/mp4'/>
+            <p className={` text-xs sm:text-lg  text-neutral-300 font-light ${geist.className} tracking-tight text-center sm:mb-4`}>
+                Glyph lets you bring your questions to life using custom manim illustrations, <br/> with something diffusion lacks : LATEX
+            </p>
+            <video autoPlay loop muted playsInline className='block w-75 md:w-[40vw] md:h-[40vh] rounded-xl object-fill'>
+                <source src='/videos/dna_black.mp4' type='video/mp4'/>
             </video>
+            <EmailInput />
+        </section>
+        <section>
+            
         </section>
     </main>
     );

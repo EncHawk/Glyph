@@ -1,7 +1,7 @@
 'use client';
 
-import { MarkdownBlock } from '@/app/components/canvas/markdown-block';
-import type { Camera, CanvasCard } from '@/app/components/canvas/types';
+import { MarkdownBlock } from '@/app/app-components/canvas/markdown-block';
+import type { Camera, CanvasCard } from '@/app/app-components/canvas/types';
 
 export function CanvasOverlay({
   cards,

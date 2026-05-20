@@ -8,8 +8,8 @@ import {
   PlusIcon,
   SendIcon,
   SunIcon,
-} from '@/app/components/canvas/icons';
-import type { Camera, Mode } from '@/app/components/canvas/types';
+} from '@/app/app-components/canvas/icons';
+import type { Camera, Mode } from '@/app/app-components/canvas/types';
 
 export function QueryDock({
   cardsCount,
