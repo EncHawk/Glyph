@@ -5,8 +5,9 @@ import { Waitlist } from '@/lib/models/Waitlist';
 export async function POST(request: Request) {
     try {
         const { email } = await request.json();
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
             return NextResponse.json(
                 { error: 'Valid email is required' },
                 { status: 400 }
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
 
         await connectToDatabase();
 
-        const existing = await Waitlist.findOne({ email });
+        const existing = await Waitlist.findOne({ email: normalizedEmail });
         if (existing) {
             return NextResponse.json(
                 { error: 'Email already on waitlist' },
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
             );
         }
 
-        await Waitlist.create({ email });
+        await Waitlist.create({ email: normalizedEmail });
 
         return NextResponse.json(
             { message: 'Successfully joined waitlist' },
@@ -31,8 +32,9 @@ export async function POST(request: Request) {
         );
     } catch (error) {
         console.error('Waitlist error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: `Failed to join waitlist: ${errorMessage}` },
             { status: 500 }
         );
     }
