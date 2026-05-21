@@ -50,14 +50,16 @@ function getMongoUri() {
     );
 }
 
-let cached = (global as typeof globalThis & { mongoose?: MongooseCache }).mongoose;
+const globalWithMongoose = global as typeof globalThis & {
+    mongoose?: MongooseCache;
+};
 
-if (!cached) {
-    cached = (global as typeof globalThis & { mongoose?: MongooseCache }).mongoose = {
-        conn: null,
-        promise: null,
-    };
-}
+const cached: MongooseCache = globalWithMongoose.mongoose ?? {
+    conn: null,
+    promise: null,
+};
+
+globalWithMongoose.mongoose = cached;
 
 export async function connectToDatabase() {
     if (cached.conn) {
@@ -74,7 +76,7 @@ export async function connectToDatabase() {
             })
             .then((mongooseInstance) => mongooseInstance)
             .catch((error) => {
-                cached!.promise = null;
+                cached.promise = null;
                 throw error;
             });
     }
