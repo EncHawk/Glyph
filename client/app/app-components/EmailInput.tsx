@@ -84,8 +84,8 @@ export default function EmailInput() {
                         }}
                         onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                         style={{ width: `${width}px` }}
-                        className='outline-none px-4 py-2 text-center
-                        bg-transparent rounded-full text-sm text-neutral-100 border border-white/70
+                        className='outline-none px-2 py-1 sm:px-4 sm:py-2 text-center
+                        bg-transparent backdrop-blur-sm rounded-full text-sm text-neutral-100 border border-white/70
                         focus:placeholder-transparent transition-all duration-200' 
                         placeholder='garrytan@gmail.com' 
                         disabled={isLoading}
@@ -95,8 +95,8 @@ export default function EmailInput() {
                 <button 
                     onClick={handleSubmit}
                     disabled={isLoading}
-                    className={`bg-orange-600 text-shadow-lg text-white text-lg tracking-tight 
-                    font-bold outline-none px-4 py-2 rounded-full ${inter.className}
+                    className={`bg-orange-600 text-shadow-lg text-white text-xs sm:text-lg tracking-tight 
+                    font-bold outline-none px-2 py-1 sm:px-4 sm:py-2 rounded-full ${inter.className}
                     cursor-pointer hover:bg-orange-500 hover:scale-105 transition-all delay-75
                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
                 `}>
