@@ -1,7 +1,7 @@
 import type { ApiResponse, Camera, CanvasCard, Mode } from '@/app/app-components/canvas/types';
 
 export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? 'https://glyph-production.up.railway.app';
+  process.env.NEXT_PUBLIC_API_BASE ?? 'https://dilipkumar2000-r--glyph-backend-web.modal.run';
 export const CARD_WIDTH = 380;
 export const CARD_MIN_WIDTH = 240;
 export const CARD_STACK_X = 440;

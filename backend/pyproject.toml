@@ -5,6 +5,7 @@ description = "the backend for the glyph application"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "modal>=0.75.0",
     "boto3>=1.42.39",
     "botocore>=1.42.39",
     "flask>=3.1.2",

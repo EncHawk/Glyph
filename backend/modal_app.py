@@ -1,0 +1,144 @@
+import os
+import uuid
+
+import modal
+from app import ROOT_DIR, VOLUME_PATH, app, secrets, volume
+from flask import Flask
+from flask_cors import CORS
+
+GEN_DIR = str(ROOT_DIR / "generated-scripts")
+GEN_FLOW = str(ROOT_DIR / "generated-flowcharts")
+MEDIA_DIR = str(ROOT_DIR / "media")
+UPLOAD_DIR = str(ROOT_DIR / "uploads")
+
+
+def _get_session_id(payload: dict) -> str:
+    return payload.get("session_id") or str(uuid.uuid4())
+
+
+def _resolve_query(payload: dict) -> str | None:
+    return payload.get("query") or payload.get("prompt") or payload.get("message")
+
+@app.function(volumes={VOLUME_PATH: volume})
+def status():
+    return {"status": "ok", "service": "glyph-backend"}
+
+
+@app.function(
+    volumes={VOLUME_PATH: volume},
+    secrets=secrets,
+)
+def login(username: str, email: str):
+    from src.server import User, db, userValidation
+    from marshmallow import ValidationError
+
+    try:
+        find = User.query.filter(User.username == username, User.email == email).first()
+        if find:
+            return {
+                "success": False,
+                "msg": f"user already exists, Welcome {username}",
+                "username": username,
+                "email": email,
+            }
+
+        valSchema = userValidation()
+        valSchema.load({"username": username, "email": email})
+
+        user = User(username=username, email=email)
+        db.session.add(user)
+        db.session.commit()
+
+        return {
+            "success": True,
+            "msg": "user added successfully",
+            "username": username,
+            "email": email,
+            "id": str(user.id),
+        }
+    except ValidationError:
+        return {"success": False, "msg": "Invalid input credentials, try again."}
+    except Exception as e:
+        return {
+            "success": False,
+            "msg": "Something went wrong",
+            "cause": "database-write",
+        }
+
+
+@app.function(
+    volumes={VOLUME_PATH: volume},
+    secrets=secrets,
+)
+def agent_run(
+    query: str,
+    session_id: str | None = None,
+    task_id: str | None = None,
+    create_video: bool | None = None,
+):
+    from src.agent_placeholder import Agent
+
+    agent = Agent(
+        session_id=session_id or str(uuid.uuid4()),
+        create_video=create_video,
+        task_id=task_id,
+    )
+    return agent.run_agent(query)
+
+
+@app.function(
+    volumes={VOLUME_PATH: volume},
+    secrets=secrets,
+)
+def upload_file_stream(filename: str, file_bytes: bytes, session_id: str | None = None):
+    from src.server import build_rag_agent
+
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(file_bytes)
+
+    sid = session_id or str(uuid.uuid4())
+    rag_agent = build_rag_agent(session_id=sid)
+    stored = rag_agent.store(filepath, session_id=sid)
+
+    return {
+        "ok": True,
+        "msg": "upload successful",
+        "session_id": sid,
+        "filename": filename,
+        "stored_count": len(stored) if stored else 0,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Web endpoint (wraps the existing Flask app)
+# ---------------------------------------------------------------------------
+
+
+def build_flask_app() -> Flask:
+    from src.server import app as flask_app
+
+    CORS(flask_app, resources={r"/*": {"origin": "*"}})
+    return flask_app
+
+
+@app.function(
+    volumes={VOLUME_PATH: volume},
+    secrets=secrets,
+)
+@modal.asgi_app()
+def web():
+    return build_flask_app()
+
+
+# ---------------------------------------------------------------------------
+# Local dev entry point
+# ---------------------------------------------------------------------------
+
+
+@app.local_entrypoint()
+def main():
+    from src.server import app as flask_app
+
+    flask_app.run(host="0.0.0.0", port=8080, debug=True)

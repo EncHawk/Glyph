@@ -28,7 +28,7 @@ CORS(app, resources={r"/*": {"origin": "http://localhost:5500"}})
 upload_folder = os.path.join(os.path.dirname(__file__), "uploads")
 
 # database config
-app.secret_key = os.getenv("secret-key")
+app.secret_key = os.getenv("SECRET_KEY")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("pgsql")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
