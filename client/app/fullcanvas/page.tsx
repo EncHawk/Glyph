@@ -1,6 +1,8 @@
- 'use client';
+'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 import { Banner } from '@/app/app-components/banner';
 import { CanvasOverlay } from '@/app/app-components/canvas/canvas-overlay';
 import { QueryDock } from '@/app/app-components/canvas/query-dock';
@@ -21,6 +23,8 @@ import {
 import type { ApiResponse, Camera, CanvasCard, DragState, Mode } from '@/app/app-components/canvas/types';
 
 export default function Home() {
+  const { user, isLoading: authLoading } = useAuth();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>('text');
   const [prompt, setPrompt] = useState('');
   const [sessionId, setSessionId] = useState('');
@@ -38,6 +42,12 @@ export default function Home() {
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
   const spaceHeldRef = useRef(false);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     setSessionId(crypto.randomUUID());
@@ -355,6 +365,18 @@ export default function Home() {
     resize(compactTextareaRef.current);
     resize(expandedTextareaRef.current);
   }, [prompt, dockExpanded]);
+
+  if (authLoading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-neutral-950">
+        <p className="text-neutral-400 text-sm">Loading...</p>
+      </main>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   const gridStyle: React.CSSProperties = {
     backgroundSize: `${24 * camera.zoom}px ${24 * camera.zoom}px`,

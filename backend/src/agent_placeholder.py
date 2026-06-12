@@ -4,6 +4,7 @@ import operator
 import os
 import re
 import subprocess
+import sys
 import uuid
 from typing import List, Optional
 from urllib.parse import unquote, urlparse
@@ -15,6 +16,11 @@ from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint, HuggingF
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, constr
 from typing_extensions import Annotated, TypedDict
+
+# Ensure src/ is on the module search path for sibling imports
+_src_dir = os.path.dirname(os.path.abspath(__file__))
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
 
 from manim_agent import Manim
 from rag import RagAgent

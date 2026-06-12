@@ -1,17 +1,27 @@
 import os
+import sys
 import uuid
-from flask import Flask, request, jsonify, session
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.dialects.postgresql import UUID
-from marshmallow import Schema, fields
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Ensure src/ is on the module search path for sibling imports
+_src_dir = os.path.dirname(os.path.abspath(__file__))
+if _src_dir not in sys.path:
+    sys.path.insert(0, _src_dir)
+
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from langchain_huggingface import (
     ChatHuggingFace,
     HuggingFaceEmbeddings,
     HuggingFaceEndpoint,
 )
+from marshmallow import Schema, fields
 from rag import RagAgent
 from agent_placeholder import Agent
+from supabase import create_client, Client
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -20,31 +30,19 @@ GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
 MEDIA_DIR = os.path.join(ROOT_DIR, "media")
 FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
-
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origin": "http://localhost:5500"}})
+CORS(app, resources={r"/*": {"origin": "*"}})
 
-# constants for theapp
+app.secret_key = os.getenv("SECRET_KEY", os.urandom(24).hex())
+
 upload_folder = os.path.join(os.path.dirname(__file__), "uploads")
 
-# database config
-app.secret_key = os.getenv("SECRET_KEY")
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("pgsql")
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-db = SQLAlchemy(app)
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = create_client(supabase_url, supabase_key)
 
 
-class User(db.Model):
-    id = db.Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    username = db.Column(db.String, unique=True, nullable=False)
-    email = db.Column(db.String, unique=True, nullable=False)
-
-
-with app.app_context():
-    db.create_all()
-
-
-class userValidation(Schema):
+class UserValidation(Schema):
     username = fields.Str(required=True)
     email = fields.Email(required=True)
 
@@ -71,7 +69,7 @@ def coerce_optional_bool(value):
 
 def build_rag_agent(session_id: str) -> RagAgent:
     llm = HuggingFaceEndpoint(
-        repo_id="Qwen/Qwen3.5-7B-Instruct",
+        repo_id="Qwen/Qwen2.5-7B-Instruct",
         huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
         temperature=0.7,
     )
@@ -84,68 +82,66 @@ def build_rag_agent(session_id: str) -> RagAgent:
 
 @app.route("/status")
 def status():
-    return "<p>200,SERVER UP AND RUNNING.</p>"
+    return jsonify({"status": "ok", "service": "glyph-backend"})
 
 
 @app.route("/login", methods=["POST"])
 def login():
-    # conn = psycopg2.connect(os.getenv('pgsql'))
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     if not data:
-        return jsonify({"msg": "no input data, try again"}), 401
+        return jsonify({"success": False, "msg": "No input data, try again"}), 400
 
-    if "username" in data and "email" in data:
-        username = data["username"]
-        email = data["email"]
-    else:
+    username = (data.get("username") or "").strip()
+    email = (data.get("email") or "").strip()
+
+    if not username or not email:
         return jsonify({"success": False, "msg": "username and email are required"}), 400
 
-    try:  # tries to validate input, if failed returns 401
-        user = User(username=username, email=email)
-        find = User.query.filter(User.username == username, User.email == email).first()
-        if find:
-            return jsonify(
-                {
-                    "success": False,
-                    "msg": "user already exists, Welcome " + username,
-                    "username": username,
-                    "email": email,
-                }
-            )
-        valSchema = userValidation()
-        input = dict(username=username, email=email)
-        check = valSchema.load(input)
-        print(check)
+    try:
+        val_schema = UserValidation()
+        val_schema.load({"username": username, "email": email})
+    except Exception:
+        return jsonify({"success": False, "msg": "Invalid input credentials, try again."}), 401
 
-        try:  # tries to write to the databse, returns a 503 when failed.
-            db.session.add(user)
-            db.session.commit()
-            session["user_id"] = str(user.id)
-            return jsonify(
-                {
-                    "success": True,
-                    "msg": "user added successfully",
-                    "username": username,
-                    "email": email,
-                    "id": session["user_id"],
-                }
-            ), 200
-        except Exception as e:
-            print(e)
-            return jsonify(
-                {
-                    "success": False,
-                    "msg": "Something went wrong, we're fixing it, Hang in there!",
-                    "cause": "database-write",
-                }
-            ), 500
+    try:
+        existing = (
+            supabase.table("users")
+            .select("id, username, email")
+            .eq("username", username)
+            .eq("email", email)
+            .execute()
+        )
+        if existing.data:
+            user = existing.data[0]
+            return jsonify({
+                "success": True,
+                "msg": f"Welcome back, {username}",
+                "username": username,
+                "email": email,
+                "id": user["id"],
+            }), 200
+
+        new_id = str(uuid.uuid4())
+        supabase.table("users").insert({
+            "id": new_id,
+            "username": username,
+            "email": email,
+        }).execute()
+
+        return jsonify({
+            "success": True,
+            "msg": "User added successfully",
+            "username": username,
+            "email": email,
+            "id": new_id,
+        }), 201
     except Exception as e:
-        print(e)
-        print(find)
-        return jsonify(
-            {"success": False, "msg": "Invalid input credentials, try again."}
-        ), 401
-
+        print(f"Supabase login error: {e}")
+        return jsonify({
+            "success": False,
+            "msg": "Something went wrong",
+            "cause": "database-write",
+        }), 500
 
 
 @app.route("/manim", methods=["POST", "GET"])
@@ -155,7 +151,7 @@ def manim_response():
     if not query:
         return jsonify({"ok": False, "error": "Missing query/prompt/message"}), 400
 
-    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    session_id = payload.get("session_id") or str(uuid.uuid4())
     task_id = payload.get("task_id") or payload.get("task_uuid")
 
     agent = Agent(session_id=session_id, create_video=True, task_id=task_id)
@@ -180,17 +176,11 @@ def manim_response():
     )
 
 
-# replace all this with a chat endpoint that calls
 allowed_files = ["pdf", "xlsx", "docx"]
-# post req to receive the files (1) for rag with the prompt, and send the response back.
+
+
 @app.route("/upload", methods=["POST"])
 def rag():
-    """
-    Docstring for rag
-
-    :return: Description
-    :rtype: type[that]
-    """
     if request.method == "POST":
         if "file" not in request.files:
             return "no file found, try again", 401
@@ -201,7 +191,6 @@ def rag():
         if not filename or not allowed_file(filename):
             return "invalid file", 400
 
-        # the file path to storethe pdf locally.
         filepath = os.path.join(upload_folder, filename)
 
         os.makedirs(upload_folder, exist_ok=True)
@@ -209,7 +198,7 @@ def rag():
 
         print("file saved at:", filepath)
 
-        session_id = request.form.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+        session_id = request.form.get("session_id") or str(uuid.uuid4())
         rag_agent = build_rag_agent(session_id=session_id)
         stored_doc_ids = rag_agent.store(filepath, session_id=session_id)
 
@@ -234,7 +223,7 @@ def agent_video_only():
     if not query:
         return jsonify({"ok": False, "error": "Missing query/prompt/message"}), 400
 
-    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    session_id = payload.get("session_id") or str(uuid.uuid4())
     task_id = payload.get("task_id") or payload.get("task_uuid")
 
     agent = Agent(session_id=session_id, create_video=True, task_id=task_id)
@@ -260,9 +249,7 @@ def agent_video_only():
     )
 
 
-@app.route(
-    "/response", methods=["POST", "GET"]
-)  # unified endpoint for text + video generation
+@app.route("/response", methods=["POST", "GET"])
 def response():
     payload = request.args.to_dict() if request.method == "GET" else (request.get_json(silent=True) or {})
 
@@ -278,7 +265,7 @@ def response():
             400,
         )
 
-    session_id = payload.get("session_id") or session.get("user_id") or str(uuid.uuid4())
+    session_id = payload.get("session_id") or str(uuid.uuid4())
     requested_mode = payload.get("mode")
     create_video = coerce_optional_bool(payload.get("create_video"))
     if create_video is None and requested_mode:

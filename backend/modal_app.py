@@ -29,35 +29,57 @@ def status():
     secrets=secrets,
 )
 def login(username: str, email: str):
-    from src.server import User, db, userValidation
-    from marshmallow import ValidationError
+    import uuid as _uuid
+
+    from marshmallow import Schema, fields
+    from supabase import create_client
+
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_KEY")
+    supabase = create_client(supabase_url, supabase_key)
+
+    class UserValidation(Schema):
+        username = fields.Str(required=True)
+        email = fields.Email(required=True)
 
     try:
-        find = User.query.filter(User.username == username, User.email == email).first()
-        if find:
+        schema = UserValidation()
+        schema.load({"username": username, "email": email})
+    except Exception:
+        return {"success": False, "msg": "Invalid input credentials, try again."}
+
+    try:
+        existing = (
+            supabase.table("users")
+            .select("id, username, email")
+            .eq("username", username)
+            .eq("email", email)
+            .execute()
+        )
+        if existing.data:
+            user = existing.data[0]
             return {
-                "success": False,
-                "msg": f"user already exists, Welcome {username}",
+                "success": True,
+                "msg": f"Welcome back, {username}",
                 "username": username,
                 "email": email,
+                "id": user["id"],
             }
 
-        valSchema = userValidation()
-        valSchema.load({"username": username, "email": email})
-
-        user = User(username=username, email=email)
-        db.session.add(user)
-        db.session.commit()
+        new_id = str(_uuid.uuid4())
+        supabase.table("users").insert({
+            "id": new_id,
+            "username": username,
+            "email": email,
+        }).execute()
 
         return {
             "success": True,
-            "msg": "user added successfully",
+            "msg": "User added successfully",
             "username": username,
             "email": email,
-            "id": str(user.id),
+            "id": new_id,
         }
-    except ValidationError:
-        return {"success": False, "msg": "Invalid input credentials, try again."}
     except Exception as e:
         return {
             "success": False,

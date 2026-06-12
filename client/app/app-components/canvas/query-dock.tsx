@@ -1,5 +1,7 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth';
 import {
   ChevronDownIcon,
   ChevronUpIcon,
@@ -50,6 +52,8 @@ export function QueryDock({
   onSetDockExpanded: (expanded: boolean) => void;
   onToggleTheme: () => void;
 }) {
+  const { user, logout } = useAuth();
+  const router = useRouter();
   return (
     <section className={`query-dock ${dockExpanded ? 'dock-expanded' : 'dock-compact'}`}>
       {!dockExpanded ? (
@@ -70,6 +74,20 @@ export function QueryDock({
             aria-label="Toggle theme"
           >
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          </button>
+
+          <button
+            type="button"
+            className="dock-toggle-btn"
+            onClick={() => { logout(); router.replace('/login'); }}
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
           </button>
 
           <textarea
@@ -110,6 +128,22 @@ export function QueryDock({
               <h1>Create learning cards on an infinite canvas</h1>
             </div>
             <div className="dock-header-actions">
+              {user && (
+                <span className="text-xs text-neutral-400 hidden sm:inline">{user.username}</span>
+              )}
+              <button
+                type="button"
+                className="dock-toggle-btn"
+                onClick={() => { logout(); router.replace('/login'); }}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+              </button>
               <button
                 type="button"
                 className="dock-toggle-btn"
