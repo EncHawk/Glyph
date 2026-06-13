@@ -6,21 +6,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Ensure src/ is on the module search path for sibling imports
 _src_dir = os.path.dirname(os.path.abspath(__file__))
 if _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from langchain_huggingface import (
-    ChatHuggingFace,
-    HuggingFaceEmbeddings,
-    HuggingFaceEndpoint,
-)
 from marshmallow import Schema, fields
-from rag import RagAgent
-from agent_placeholder import Agent
 from supabase import create_client, Client
 
 
@@ -67,7 +59,14 @@ def coerce_optional_bool(value):
     return None
 
 
-def build_rag_agent(session_id: str) -> RagAgent:
+def build_rag_agent(session_id: str):
+    from langchain_huggingface import (
+        ChatHuggingFace,
+        HuggingFaceEmbeddings,
+        HuggingFaceEndpoint,
+    )
+    from rag import RagAgent
+
     llm = HuggingFaceEndpoint(
         repo_id="Qwen/Qwen2.5-7B-Instruct",
         huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
@@ -78,6 +77,12 @@ def build_rag_agent(session_id: str) -> RagAgent:
         model_name="sentence-transformers/all-mpnet-base-v2"
     )
     return RagAgent(embeddings=embeddings, model=model, session_id=session_id)
+
+
+def _get_agent(session_id: str, create_video, task_id):
+    from agent_placeholder import Agent
+
+    return Agent(session_id=session_id, create_video=create_video, task_id=task_id)
 
 
 @app.route("/status")
@@ -146,6 +151,8 @@ def login():
 
 @app.route("/manim", methods=["POST", "GET"])
 def manim_response():
+    from agent_placeholder import Agent
+
     payload = request.args.to_dict() if request.method == "GET" else (request.get_json(silent=True) or {})
     query = payload.get("query") or payload.get("prompt") or payload.get("message")
     if not query:
@@ -218,6 +225,8 @@ def rag():
 
 @app.route("/agent", methods=["POST"])
 def agent_video_only():
+    from agent_placeholder import Agent
+
     payload = request.get_json(silent=True) or {}
     query = payload.get("query") or payload.get("prompt") or payload.get("message")
     if not query:
@@ -251,6 +260,8 @@ def agent_video_only():
 
 @app.route("/response", methods=["POST", "GET"])
 def response():
+    from agent_placeholder import Agent
+
     payload = request.args.to_dict() if request.method == "GET" else (request.get_json(silent=True) or {})
 
     query = payload.get("query") or payload.get("prompt") or payload.get("message")

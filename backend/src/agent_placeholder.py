@@ -33,11 +33,22 @@ MEDIA_DIR = os.path.join(ROOT_DIR, "media")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "glyph-data-storage")
 
 
-llm = HuggingFaceEndpoint(
-    repo_id="Qwen/Qwen2.5-7B-Instruct",
-    huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-)
-model = ChatHuggingFace(llm=llm)
+_lazy: dict = {}
+
+
+def _get_llm():
+    if "llm" not in _lazy:
+        _lazy["llm"] = HuggingFaceEndpoint(
+            repo_id="Qwen/Qwen2.5-7B-Instruct",
+            huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+        )
+    return _lazy["llm"]
+
+
+def _get_model():
+    if "model" not in _lazy:
+        _lazy["model"] = ChatHuggingFace(llm=_get_llm())
+    return _lazy["model"]
 
 
 def _get_parallel_client() -> Optional[Parallel]:
@@ -385,7 +396,12 @@ class AgentState(TypedDict):
 
 tools = [manim_tool]
 tools_by_name = {tool_obj.name: tool_obj for tool_obj in tools}
-model_with_tools = ChatHuggingFace(llm=llm).bind_tools(tools=tools)
+
+
+def _get_model_with_tools():
+    if "model_with_tools" not in _lazy:
+        _lazy["model_with_tools"] = ChatHuggingFace(llm=_get_llm()).bind_tools(tools=tools)
+    return _lazy["model_with_tools"]
 
 
 def classifier_node(state: AgentState) -> AgentState:
@@ -400,7 +416,7 @@ def classifier_node(state: AgentState) -> AgentState:
 
 User: {user_msg}
 Route:"""
-    route = model.invoke([SystemMessage(content=prompt)]).content.strip().lower()
+    route = _get_model().invoke([SystemMessage(content=prompt)]).content.strip().lower()
     if route not in ("manim_only", "text"):
         route = "text"
     return {"route": route, "llm_calls": state.get("llm_calls", 0) + 1}
@@ -421,7 +437,7 @@ Rules:
 
 Topic: {user_msg}
 """
-    response = model.invoke([SystemMessage(content=prompt)]).content.strip()
+    response = _get_model().invoke([SystemMessage(content=prompt)]).content.strip()
     response = response.replace("```json", "").replace("```", "").strip()
 
     try:
@@ -675,7 +691,24 @@ builder.add_conditional_edges(
 
 builder.add_edge("ffmpeg_node", END)
 builder.add_edge("text_node", END)
-agent = builder.compile()
+
+
+def _get_agent():
+    if "agent" not in _lazy:
+        _lazy["agent"] = builder.compile()
+    return _lazy["agent"]
+
+
+def __getattr__(name):
+    lazy_map = {
+        "llm": _get_llm,
+        "model": _get_model,
+        "model_with_tools": _get_model_with_tools,
+        "agent": _get_agent,
+    }
+    if name in lazy_map:
+        return lazy_map[name]()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class Agent:
@@ -716,7 +749,7 @@ class Agent:
         }
 
         try:
-            result = agent.invoke(initial_state)
+            result = _get_agent().invoke(initial_state)
             resolved_route = result.get("route") or route or "text"
 
             if result.get("final_video_url"):

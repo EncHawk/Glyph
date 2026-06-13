@@ -16,7 +16,7 @@ type AuthContextValue = {
 };
 
 const AUTH_KEY = 'glyph_user';
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'https://dilipkumar2000-r--glyph-backend-web.modal.run';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'https://glyph-production-fa0b.up.railway.app';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
