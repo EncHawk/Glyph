@@ -96,7 +96,7 @@ export default function EmailInput() {
                     onClick={handleSubmit}
                     disabled={isLoading}
                     className={`bg-orange-600 text-shadow-lg text-white text-xs sm:text-lg tracking-tight 
-                    font-bold outline-none px-2 py-1 sm:px-4 sm:py-2 rounded-full ${inter.className}
+                    font-bold outline-none px-2 py-1 sm:px-2 sm:py-2 rounded-full ${inter.className}
                     cursor-pointer hover:bg-orange-500 hover:scale-105 transition-all delay-75
                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100
                 `}>

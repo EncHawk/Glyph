@@ -4,6 +4,7 @@ import { EB_Garamond } from 'next/font/google';
 import { Inter} from 'next/font/google';
 import Prism from '../../components/Prism'
 import EmailInput from '../app-components/EmailInput'
+import Link from 'next/link';
 
 const geist = Geist_Mono({ subsets: ['latin'] });
 const gara = EB_Garamond({subsets:['latin']});
@@ -42,7 +43,18 @@ export default function LandingPage() {
             <video autoPlay loop muted playsInline className='block w-75 md:w-[40vw] md:h-[40vh] rounded-xl object-fill'>
                 <source src='/videos/dna_black.mp4' type='video/mp4'/>
             </video>
-            <EmailInput />
+            <div className="flex flex-col justify-center items-center gap-5">
+                <Link href="/fullcanvas" className='text-black backdrop-blur-xl p-2 bg-transparent text-shadow-md inset-shadow-sm
+                shadow-sm  font-bold rounded-full cursor-pointer max-w-25 ring-[1px] ring-orange-400
+                hover:scale-102 hover:inset-shadow-lg hover:ring-2 hover:ring-orange-400  hover:ring-inset-1 hover:text-orange-500 transition-al delay-75
+                '>
+                    Try Beta
+                </Link>
+                <span className='text-neutral-100'>
+                    Full version is in development, try now and suggest changes.
+                </span>
+                {/* <EmailInput /> */}
+            </div>
         </section>
         <section>
             
