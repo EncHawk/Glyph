@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import PixelBlast from '../../components/PixelBlast';
 
 export default function LoginPage() {
   const { login, isLoading: authLoading, user } = useAuth();
@@ -45,58 +46,76 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-950 px-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-sm flex flex-col gap-5 bg-neutral-900 border border-neutral-800 rounded-2xl p-8"
-      >
-        <h1 className="text-2xl font-semibold text-neutral-100 text-center tracking-tight">
-          Glyph
-        </h1>
-        <p className="text-sm text-neutral-400 text-center -mt-2">
-          Sign in or create an account
-        </p>
+    <div className="login-page">
+      <div className="login-dither-bg">
+        <PixelBlast
+        variant="square"
+        pixelSize={4}
+        color="#e7a65c"
+        patternScale={2}
+        patternDensity={1}
+        pixelSizeJitter={0}
+        enableRipples
+        rippleSpeed={0.4}
+        rippleThickness={0.12}
+        rippleIntensityScale={1.5}
+        liquid={false}
+        liquidStrength={0.12}
+        liquidRadius={1.2}
+        liquidWobbleSpeed={5}
+        speed={0.5}
+        edgeFade={0.25}
+        transparent
+      />
+      </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="username" className="text-xs text-neutral-400 font-medium">
-            Username
-          </label>
+      <form onSubmit={handleSubmit} className="login-card">
+        <h1 className="login-heading">Glyph</h1>
+        <p className="login-sub">Sign in or create an account</p>
+
+        <div className="login-field">
+          <label htmlFor="username" className="login-label">Username</label>
           <input
             id="username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             placeholder="your_username"
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-orange-500 transition-colors"
+            className="login-input"
             disabled={submitting || authLoading}
+            autoComplete="username"
           />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-xs text-neutral-400 font-medium">
-            Email
-          </label>
+        <div className="login-field">
+          <label htmlFor="email" className="login-label">Email</label>
           <input
             id="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-orange-500 transition-colors"
+            className="login-input"
             disabled={submitting || authLoading}
+            autoComplete="email"
           />
         </div>
 
         <button
           type="submit"
           disabled={submitting || authLoading}
-          className="bg-orange-600 hover:bg-orange-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-lg py-2.5 transition-colors cursor-pointer"
+          className="login-submit"
         >
-          {submitting ? 'Signing in...' : 'Continue'}
+          {submitting ? (
+            <span className="login-submit-content">
+              <span className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+              Signing in...
+            </span>
+          ) : 'Continue'}
         </button>
 
         {message && (
-          <p className={`text-sm text-center ${isError ? 'text-red-400' : 'text-green-400'}`}>
+          <p className={`login-message ${isError ? 'login-message-error' : 'login-message-ok'}`}>
             {message}
           </p>
         )}

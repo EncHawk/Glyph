@@ -368,8 +368,8 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-neutral-950">
-        <p className="text-neutral-400 text-sm">Loading...</p>
+      <main className="min-h-screen flex items-center justify-center" style={{ background: '#07080f' }}>
+        <div className="spinner" style={{ width: 32, height: 32, borderWidth: 3 }} />
       </main>
     );
   }
