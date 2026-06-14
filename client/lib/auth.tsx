@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 
 type User = {
   id: string;
@@ -21,18 +21,21 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'https://glyph-production-f
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
+  const [user, setUser] = useState<User | null>(() => {
     try {
       const stored = localStorage.getItem(AUTH_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored));
-      }
+      if (stored) return JSON.parse(stored);
     } catch {}
-    setIsLoading(false);
-  }, []);
+    return null;
+  });
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isLoading, setIsLoading] = useState(() => {
+    try {
+      return !localStorage.getItem(AUTH_KEY);
+    } catch {
+      return true;
+    }
+  });
 
   const login = useCallback(async (username: string, email: string): Promise<{ ok: boolean; msg: string }> => {
     try {

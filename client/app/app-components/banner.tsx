@@ -1,24 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 const DISMISS_KEY = 'glyph-beta-banner-dismissed';
 
 export function Banner() {
-  const [isDismissed, setIsDismissed] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [isDismissed, setIsDismissed] = useState(() => typeof window !== 'undefined' && window.localStorage.getItem(DISMISS_KEY) === 'true');
 
-  useEffect(() => {
-    setIsDismissed(window.localStorage.getItem(DISMISS_KEY) === 'true');
-    setMounted(true);
-  }, []);
-
-  const handleDismiss = () => {
-    window.localStorage.setItem(DISMISS_KEY, 'true');
-    setIsDismissed(true);
-  };
-
-  if (!mounted || isDismissed) {
+  if (typeof window === 'undefined' || isDismissed) {
     return null;
   }
 
