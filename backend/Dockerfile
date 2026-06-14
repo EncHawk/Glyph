@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ffmpeg \
     gcc \
+    latexmk \
     libcairo2-dev \
     libffi-dev \
     libjpeg62-turbo-dev \
@@ -22,6 +23,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     poppler-utils \
     shared-mime-info \
     tesseract-ocr \
+    texlive-fonts-recommended \
+    texlive-latex-base \
+    texlive-latex-extra \
+    texlive-latex-recommended \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
