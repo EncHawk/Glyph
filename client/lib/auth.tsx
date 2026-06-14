@@ -45,9 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, email }),
       });
 
-      const data = await res.json();
+      let data: { success?: boolean; msg?: string; id?: string; username?: string; email?: string } | null = null;
 
-      if (data.success) {
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
+        data = null;
+      }
+
+      if (res.ok && data?.success && data.id && data.username && data.email) {
         const loggedInUser: User = {
           id: data.id,
           username: data.username,
@@ -59,9 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { ok: true, msg: data.msg };
       }
 
-      return { ok: false, msg: data.msg || 'Login failed' };
+      return {
+        ok: false,
+        msg: data?.msg || `Login failed${res.status ? ` (${res.status})` : ''}`,
+      };
     } catch {
-      return { ok: false, msg: 'Network error' };
+      return { ok: false, msg: 'Network error. Please try again.' };
     }
   }, []);
 

@@ -68,7 +68,6 @@ export default function LoginPage() {
           edgeFade={0.25}
           transparent
           interactive
-          style={{}}
           className="absolute inset-0"
         />
       </div>
@@ -135,7 +134,15 @@ export default function LoginPage() {
         </button>
 
         {message && (
-          <p className={`m-0 text-center text-[0.82rem] ${isError ? 'text-[#ff7675]' : 'text-[#19f688]'}`}>
+          <p
+            role="status"
+            aria-live="polite"
+            className={`m-0 rounded-[0.8rem] border px-3 py-2 text-center text-[0.82rem] ${
+              isError
+                ? 'border-[#ff7675]/30 bg-[#ff7675]/10 text-[#ff9c9b]'
+                : 'border-[#19f688]/25 bg-[#19f688]/10 text-[#7effbb]'
+            }`}
+          >
             {message}
           </p>
         )}

@@ -91,17 +91,17 @@ def login(username: str, email: str):
         existing = (
             supabase.table("users")
             .select("id, username, email")
-            .eq("username", username)
-            .eq("email", email)
+            .or_(f"username.eq.{username},email.eq.{email}")
+            .limit(1)
             .execute()
         )
         if existing.data:
             user = existing.data[0]
             return {
                 "success": True,
-                "msg": f"Welcome back, {username}",
-                "username": username,
-                "email": email,
+                "msg": f"Welcome back, {user['username']}",
+                "username": user["username"],
+                "email": user["email"],
                 "id": user["id"],
             }
 

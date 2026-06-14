@@ -12,7 +12,8 @@ import boto3
 import botocore
 from langchain.messages import AnyMessage, HumanMessage, SystemMessage
 from langchain.tools import tool
-from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint, HuggingFaceEmbeddings
+from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+from hf_embeddings import HFInferenceEmbeddings
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, constr
 from typing_extensions import Annotated, TypedDict
@@ -343,9 +344,7 @@ def contextual_text_tool(prompt: str, session_id: str, web_search=""):
         temperature=0.3,
     )
     rag_model = ChatHuggingFace(llm=rag_llm)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2"
-    )
+    embeddings = HFInferenceEmbeddings()
     rag_agent = RagAgent(
         embeddings=embeddings,
         model=rag_model,
