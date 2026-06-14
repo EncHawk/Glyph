@@ -19,10 +19,6 @@ export default function LoginPage() {
   const [showBetaBanner, setShowBetaBanner] = useState(false);
 
   useEffect(() => {
-    setShowBetaBanner(false);
-  }, [username, email]);
-
-  useEffect(() => {
     if (user && !submitting) {
       router.replace('/fullcanvas');
     }
@@ -110,7 +106,7 @@ export default function LoginPage() {
             id="username"
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e) => { setUsername(e.target.value); setShowBetaBanner(false); }}
             placeholder="your_username"
             className="rounded-[0.7rem] border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-[0.9rem] text-[#e8eaf0] outline-none transition-all placeholder:text-[#4b5266] focus:border-orange-500/50 focus:bg-white/[0.06] focus:shadow-[0_0_0_3px_rgba(249,115,22,0.12)] disabled:opacity-50"
             disabled={submitting}
@@ -126,7 +122,7 @@ export default function LoginPage() {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); setShowBetaBanner(false); }}
             placeholder="you@example.com"
             className="rounded-[0.7rem] border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-[0.9rem] text-[#e8eaf0] outline-none transition-all placeholder:text-[#4b5266] focus:border-orange-500/50 focus:bg-white/[0.06] focus:shadow-[0_0_0_3px_rgba(249,115,22,0.12)] disabled:opacity-50"
             disabled={submitting}

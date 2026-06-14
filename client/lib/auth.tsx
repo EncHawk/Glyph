@@ -45,29 +45,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ username, email }),
       });
 
-      let data: { success?: boolean; msg?: string; id?: string; username?: string; email?: string } | null = null;
+      let data: Record<string, unknown> | null = null;
 
       try {
-        data = (await res.json()) as typeof data;
+        data = await res.json();
       } catch {
         data = null;
       }
 
-      if (res.ok && data?.success && data.id && data.username && data.email) {
+      const d = data as Record<string, unknown> | null;
+      if (res.ok && d?.success && d.id && d.username && d.email) {
         const loggedInUser: User = {
-          id: data.id,
-          username: data.username,
-          email: data.email,
+          id: String(d.id),
+          username: String(d.username),
+          email: String(d.email),
         };
         setUser(loggedInUser);
         localStorage.setItem(AUTH_KEY, JSON.stringify(loggedInUser));
         setIsLoading(false);
-        return { ok: true, msg: data.msg };
+        return { ok: true, msg: String(d.msg) };
       }
 
       return {
         ok: false,
-        msg: data?.msg || `Login failed${res.status ? ` (${res.status})` : ''}`,
+        msg: d?.msg ? String(d.msg) : `Login failed${res.status ? ` (${res.status})` : ''}`,
       };
     } catch {
       return { ok: false, msg: 'Network error. Please try again.' };
