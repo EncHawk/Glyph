@@ -5,12 +5,18 @@ import { useState } from 'react';
 const DISMISS_KEY = 'glyph-beta-banner-dismissed';
 
 export function Banner() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isDismissed, setIsDismissed] = useState(() => typeof window !== 'undefined' && window.localStorage.getItem(DISMISS_KEY) === 'true');
+  const [isDismissed, setIsDismissed] = useState(
+    typeof window !== 'undefined' && window.localStorage.getItem(DISMISS_KEY) === 'true'
+  );
 
   if (typeof window === 'undefined' || isDismissed) {
     return null;
   }
+
+  const handleDismiss = () => {
+    window.localStorage.setItem(DISMISS_KEY, 'true');
+    setIsDismissed(true);
+  };
 
   return (
     <section className="beta-banner" aria-label="Beta notice">
