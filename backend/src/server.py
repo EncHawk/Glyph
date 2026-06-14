@@ -60,11 +60,8 @@ def coerce_optional_bool(value):
 
 
 def build_rag_agent(session_id: str):
-    from langchain_huggingface import (
-        ChatHuggingFace,
-        HuggingFaceEmbeddings,
-        HuggingFaceEndpoint,
-    )
+    from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+    from hf_embeddings import HFInferenceEmbeddings
     from rag import RagAgent
 
     llm = HuggingFaceEndpoint(
@@ -73,9 +70,7 @@ def build_rag_agent(session_id: str):
         temperature=0.7,
     )
     model = ChatHuggingFace(llm=llm)
-    embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-mpnet-base-v2"
-    )
+    embeddings = HFInferenceEmbeddings()
     return RagAgent(embeddings=embeddings, model=model, session_id=session_id)
 
 
@@ -112,17 +107,17 @@ def login():
         existing = (
             supabase.table("users")
             .select("id, username, email")
-            .eq("username", username)
-            .eq("email", email)
+            .or_(f"username.eq.{username},email.eq.{email}")
+            .limit(1)
             .execute()
         )
         if existing.data:
             user = existing.data[0]
             return jsonify({
                 "success": True,
-                "msg": f"Welcome back, {username}",
-                "username": username,
-                "email": email,
+                "msg": f"Welcome back, {user['username']}",
+                "username": user["username"],
+                "email": user["email"],
                 "id": user["id"],
             }), 200
 

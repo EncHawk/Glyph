@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 type User = {
   id: string;
@@ -21,21 +21,21 @@ const API_BASE = 'https://api-glyph.up.railway.app';
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem(AUTH_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch {}
-    return null;
-  });
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isLoading, setIsLoading] = useState(() => {
-    try {
-      return !localStorage.getItem(AUTH_KEY);
+      if (stored) {
+        setUser(JSON.parse(stored) as User);
+      }
     } catch {
-      return true;
+      localStorage.removeItem(AUTH_KEY);
+    } finally {
+      setIsLoading(false);
     }
-  });
+  }, []);
 
   const login = useCallback(async (username: string, email: string): Promise<{ ok: boolean; msg: string }> => {
     try {
@@ -55,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         setUser(loggedInUser);
         localStorage.setItem(AUTH_KEY, JSON.stringify(loggedInUser));
+        setIsLoading(false);
         return { ok: true, msg: data.msg };
       }
 
