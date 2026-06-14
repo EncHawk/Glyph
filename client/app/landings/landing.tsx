@@ -49,7 +49,7 @@ export default function LandingPage() {
         </video>
 
         <div className="landing-actions">
-          <Link href="/login" className='text-black backdrop-blur-xl p-2 bg-transparent text-shadow-md inset-shadow-sm
+          <Link href="/login" className='text-black backdrop-blur-2xl p-2 bg-black/20 text-shadow-md inset-shadow-sm
                 shadow-sm  font-bold rounded-full cursor-pointer max-w-25 ring-[1px] ring-orange-400
                 hover:scale-102 hover:inset-shadow-lg hover:ring-2 hover:ring-orange-400  hover:ring-inset-1 hover:text-orange-500 transition-al delay-75
                 '>

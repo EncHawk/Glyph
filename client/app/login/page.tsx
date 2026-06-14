@@ -81,6 +81,7 @@ export default function LoginPage() {
           edgeFade={0.25}
           transparent
           interactive
+          style={{}}
           className="absolute inset-0"
         />
       </div>
