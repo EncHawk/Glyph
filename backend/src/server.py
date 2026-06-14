@@ -10,7 +10,7 @@ _src_dir = os.path.dirname(os.path.abspath(__file__))
 if _src_dir not in sys.path:
     sys.path.insert(0, _src_dir)
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from marshmallow import Schema, fields
 from supabase import create_client, Client
@@ -22,8 +22,11 @@ GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
 MEDIA_DIR = os.path.join(ROOT_DIR, "media")
 FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 CORS(app, resources={r"/*": {"origin": "*"}})
+
+USE_LOCAL_STORAGE = os.getenv("USE_LOCAL_STORAGE", "false").strip().lower() in {"1", "true", "yes"}
+LOCAL_BASE_URL = os.getenv("LOCAL_BASE_URL", "http://localhost:8080")
 
 app.secret_key = os.getenv("SECRET_KEY", os.urandom(24).hex())
 
@@ -78,6 +81,26 @@ def _get_agent(session_id: str, create_video, task_id):
     from agent_placeholder import Agent
 
     return Agent(session_id=session_id, create_video=create_video, task_id=task_id)
+
+
+@app.route("/media/<path:filename>")
+def serve_media(filename):
+    return send_from_directory(MEDIA_DIR, filename)
+
+
+@app.route("/flowchart_media/<path:filename>")
+def serve_flowchart(filename):
+    return send_from_directory(FLOWCHART_MEDIA_DIR, filename)
+
+
+@app.route("/generated-scripts/<path:filename>")
+def serve_scripts(filename):
+    return send_from_directory(GEN_DIR, filename)
+
+
+@app.route("/generated-flowcharts/<path:filename>")
+def serve_gen_flow(filename):
+    return send_from_directory(GEN_FLOW, filename)
 
 
 @app.route("/status")

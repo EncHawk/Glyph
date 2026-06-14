@@ -16,7 +16,7 @@ type AuthContextValue = {
 };
 
 const AUTH_KEY = 'glyph_user';
-const API_BASE = 'https://api-glyph.up.railway.app';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'https://api-glyph.up.railway.app';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 

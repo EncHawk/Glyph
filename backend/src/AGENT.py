@@ -27,11 +27,14 @@ class Agent:
     def __init__(self, session_id, attempts, use_LLM=True):
         self.session_id = session_id
         self.attempts = attempts
-        ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
-        GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
-        MEDIA_DIR = os.path.join(ROOT_DIR, "media")
-        FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
+GEN_FLOW = os.path.join(ROOT_DIR, "generated-flowcharts")
+MEDIA_DIR = os.path.join(ROOT_DIR, "media")
+FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
+
+USE_LOCAL_STORAGE = os.getenv("USE_LOCAL_STORAGE", "false").strip().lower() in {"1", "true", "yes"}
+LOCAL_BASE_URL = os.getenv("LOCAL_BASE_URL", "http://localhost:8080")
 
         self.hf_llm = HuggingFaceEndpoint(
             repo_id="zai-org/GLM-4.7",
@@ -74,6 +77,12 @@ class Agent:
         os.makedirs(self.GEN_DIR, exist_ok=True)
         os.makedirs(self.MEDIA_DIR, exist_ok=True)
         assert os.path.join(self.MEDIA_DIR, "videos", "480p15", f"{className}.mp4")
+        generated_video = os.path.join(
+            self.MEDIA_DIR, "videos", className, "480p15", f"{className}.mp4"
+        )
+        s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
+        if USE_LOCAL_STORAGE:
+            return f"{LOCAL_BASE_URL}/media/videos/{className}/480p15/{className}.mp4"
         s3 = boto3.resource(
             "s3",
             aws_access_key_id=os.getenv("aws_access_key_id"),
@@ -81,19 +90,15 @@ class Agent:
             region_name=os.getenv("aws_region"),
         )
         output_vid = os.path.abspath(os.path.join(self.GEN_DIR, f"{className}.py"))
-        generated_video = os.path.join(
-            self.MEDIA_DIR, "videos", className, "480p15", f"{className}.mp4"
-        )
         try:
             subprocess.run(["manim", "-pql", output_vid, className], check=True)
         except Exception as e:
             print("Manim died:", e)
             raise Exception("Manim render failed")
-        s3_key = f"manim/{className}_{datetime.datetime.now().isoformat()}.mp4"
         try:
             s3.Bucket(s3_bucket_name).upload_file(
                 generated_video, s3_key
-            )  # ffs aws was getting a python file in the format of mp4 im retarded
+            )
         except botocore.exceptions.ClientError as e:
             print("S3 upload failed:", e)
             raise Exception("S3 upload failed")
@@ -115,6 +120,9 @@ class Agent:
         os.makedirs(self.FLOWCHART_MEDIA_DIR, exist_ok=True)
         assert os.path.join(self.FLOWCHART_MEDIA_DIR, f"{className}.svg")
 
+        s3_key = f"flowchart/{className}_{datetime.datetime.now().isoformat()}.svg"
+        if USE_LOCAL_STORAGE:
+            return f"{LOCAL_BASE_URL}/flowchart_media/{className}.svg"
         s3 = boto3.resource(
             "s3",
             aws_access_key_id=os.getenv("aws_access_key_id"),
@@ -130,7 +138,6 @@ class Agent:
             print("Flowchart generation messed up:", e)
             raise Exception("Flowchart render failed")
 
-        s3_key = f"flowchart/{className}_{datetime.datetime.now().isoformat()}.svg"
         try:
             extra_args = {"ContentType": "image/xml/+svg"}
             s3.Bucket(s3_bucket_name).upload_file(
@@ -165,7 +172,7 @@ class Agent:
             },
         }
         llm = HuggingFaceEndpoint(  # add your huggingface token, this shit free and good heck yeah!
-            repo_id="Qwen/Qwen2.5-7B-Instruct",
+            repo_id="zai-org/GLM-4.7",
             temperature=0.7,
         )
         model = ChatHuggingFace(llm=llm)

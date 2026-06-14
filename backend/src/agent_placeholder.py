@@ -32,6 +32,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GEN_DIR = os.path.join(ROOT_DIR, "generated-scripts")
 MEDIA_DIR = os.path.join(ROOT_DIR, "media")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "glyph-data-storage")
+USE_LOCAL_STORAGE = os.getenv("USE_LOCAL_STORAGE", "false").strip().lower() in {"1", "true", "yes"}
+LOCAL_BASE_URL = os.getenv("LOCAL_BASE_URL", "http://localhost:8080")
 
 
 _lazy: dict = {}
@@ -175,6 +177,8 @@ def _render_manim(script_path: str, class_name: str) -> str:
 
 
 def _upload_to_s3(local_path: str, s3_key: str, bucket_name: str = S3_BUCKET_NAME) -> str:
+    if USE_LOCAL_STORAGE:
+        return f"{LOCAL_BASE_URL}/{s3_key}"
     s3 = boto3.resource(
         "s3",
         aws_access_key_id=os.getenv("aws_access_key_id"),
@@ -562,20 +566,28 @@ def ffmpeg_node(state: AgentState) -> AgentState:
     if not urls:
         raise RuntimeError("No scene videos available for stitching")
 
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=os.getenv("aws_access_key_id"),
-        aws_secret_access_key=os.getenv("aws_secret_access_key"),
-        region_name=os.getenv("aws_region"),
-    )
-
     task_id = state["task_id"]
     local_files = []
-    for index, url in enumerate(urls, start=1):
-        s3_key = _extract_s3_key_from_url(url, S3_BUCKET_NAME)
-        local_path = f"/tmp/{task_id}_scene_{index:02d}.mp4"
-        s3.download_file(S3_BUCKET_NAME, s3_key, local_path)
-        local_files.append(local_path)
+
+    if USE_LOCAL_STORAGE:
+        for index, url in enumerate(urls, start=1):
+            relative = url.replace(f"{LOCAL_BASE_URL}/", "")
+            local_path = os.path.join(ROOT_DIR, relative)
+            if not os.path.exists(local_path):
+                raise FileNotFoundError(f"Local video not found at {local_path}")
+            local_files.append(local_path)
+    else:
+        s3 = boto3.client(
+            "s3",
+            aws_access_key_id=os.getenv("aws_access_key_id"),
+            aws_secret_access_key=os.getenv("aws_secret_access_key"),
+            region_name=os.getenv("aws_region"),
+        )
+        for index, url in enumerate(urls, start=1):
+            s3_key = _extract_s3_key_from_url(url, S3_BUCKET_NAME)
+            local_path = f"/tmp/{task_id}_scene_{index:02d}.mp4"
+            s3.download_file(S3_BUCKET_NAME, s3_key, local_path)
+            local_files.append(local_path)
 
     concat_path = f"/tmp/{task_id}_concat_list.txt"
     with open(concat_path, "w", encoding="utf-8") as file_obj:
@@ -619,7 +631,15 @@ def ffmpeg_node(state: AgentState) -> AgentState:
         )
 
     final_key = _build_final_s3_key(task_id, len(local_files))
-    final_url = _upload_to_s3(output_path, final_key, S3_BUCKET_NAME)
+    if USE_LOCAL_STORAGE:
+        os.makedirs(os.path.join(MEDIA_DIR, "final"), exist_ok=True)
+        dest_path = os.path.join(MEDIA_DIR, final_key)
+        os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+        import shutil as _shutil
+        _shutil.copy2(output_path, dest_path)
+        final_url = f"{LOCAL_BASE_URL}/{final_key}"
+    else:
+        final_url = _upload_to_s3(output_path, final_key, S3_BUCKET_NAME)
 
     return {
         "final_video_url": final_url,

@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import PixelBlast from '../../components/PixelBlast';
 
+const TEST_USERNAME = 'Dilip';
+const TEST_EMAIL = 'dilipkumar2000.r@gmail.com';
+
 export default function LoginPage() {
   const { login, user } = useAuth();
   const router = useRouter();
@@ -13,6 +16,11 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
+  const [showBetaBanner, setShowBetaBanner] = useState(false);
+
+  useEffect(() => {
+    setShowBetaBanner(false);
+  }, [username, email]);
 
   useEffect(() => {
     if (user && !submitting) {
@@ -28,6 +36,11 @@ export default function LoginPage() {
     if (!trimmedUser || !trimmedEmail) {
       setMessage('Please fill in both fields');
       setIsError(true);
+      return;
+    }
+
+    if (trimmedUser !== TEST_USERNAME || trimmedEmail !== TEST_EMAIL) {
+      setShowBetaBanner(true);
       return;
     }
 
@@ -133,7 +146,7 @@ export default function LoginPage() {
           ) : 'Continue'}
         </button>
 
-        {message && (
+        {message && !showBetaBanner && (
           <p
             role="status"
             aria-live="polite"
@@ -145,6 +158,23 @@ export default function LoginPage() {
           >
             {message}
           </p>
+        )}
+
+        {showBetaBanner && (
+          <div className="flex flex-col items-center gap-3 rounded-[0.8rem] border border-[#f97316]/30 bg-[#f97316]/10 px-4 py-4 text-center">
+            <p className="m-0 text-[0.85rem] font-semibold text-[#f0f0f5]">
+              Not in test account
+            </p>
+            <p className="m-0 text-[0.78rem] text-[#8b92a8]">
+              Glyph is currently in closed beta. Reach out to request access.
+            </p>
+            <a
+              href={`mailto:${TEST_EMAIL}?subject=Beta%20Access%20Request`}
+              className="mt-1 rounded-[0.6rem] border-none bg-gradient-to-br from-[#ea580c] via-[#f97316] to-[#fb923c] px-5 py-2 text-[0.82rem] font-semibold text-white shadow-[0_4px_16px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_20px_rgba(249,115,22,0.4)]"
+            >
+              Become a Beta Tester
+            </a>
+          </div>
         )}
       </form>
     </div>
