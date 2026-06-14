@@ -18,11 +18,10 @@ class Manim:
 
     def _chat_completion(self, client, messages, max_tokens=5000, temperature=0.6):
         response = client.chat_completion(
-            model="zai-org/GLM-4.7",
+            model="Qwen/Qwen2.5-7B-Instruct",
             messages=messages,
             max_tokens=max_tokens,
             temperature=temperature,
-            response_format=self.response_format,
         )
         return response.choices[0].message.content
 

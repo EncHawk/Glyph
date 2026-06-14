@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - USE_LOCAL_STORAGE=true
+      - LOCAL_BASE_URL=http://localhost:8080
+      - PORT=8080
+    volumes:
+      - backend-media:/app/media
+      - backend-gen-scripts:/app/generated-scripts
+      - backend-gen-flowcharts:/app/generated-flowcharts
+      - backend-flowchart-media:/app/flowchart_media
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8080/status')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  backend-media:
+  backend-gen-scripts:
+  backend-gen-flowcharts:
+  backend-flowchart-media:

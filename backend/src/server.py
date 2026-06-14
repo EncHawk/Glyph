@@ -23,7 +23,7 @@ MEDIA_DIR = os.path.join(ROOT_DIR, "media")
 FLOWCHART_MEDIA_DIR = os.path.join(ROOT_DIR, "flowchart_media")
 
 app = Flask(__name__, static_folder=None)
-CORS(app, resources={r"/*": {"origin": "*"}})
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 USE_LOCAL_STORAGE = os.getenv("USE_LOCAL_STORAGE", "false").strip().lower() in {"1", "true", "yes"}
 LOCAL_BASE_URL = os.getenv("LOCAL_BASE_URL", "http://localhost:8080")
